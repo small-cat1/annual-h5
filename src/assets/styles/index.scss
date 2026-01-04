@@ -1,6 +1,6 @@
-@import './variables.scss';
-@import './reset.scss';
-@import './animation.scss';
+@use './variables.scss';
+@use './reset.scss';
+@use './animation.scss';
 
 // 全局样式
 * {

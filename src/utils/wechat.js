@@ -115,6 +115,7 @@ export function setShareInfo(options) {
   if (typeof wx === 'undefined') return
 
   wx.ready(() => {
+    // 分享给朋友
     wx.updateAppMessageShareData({
       title,
       desc,
@@ -124,6 +125,7 @@ export function setShareInfo(options) {
       fail: () => {}
     })
 
+    // 分享到朋友圈
     wx.updateTimelineShareData({
       title,
       link,

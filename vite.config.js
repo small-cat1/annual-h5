@@ -1,59 +1,70 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import Components from 'unplugin-vue-components/vite'
 import { VantResolver } from '@vant/auto-import-resolver'
 import { fileURLToPath, URL } from 'node:url'
 
-export default defineConfig({
-  plugins: [
-    vue(),
-    Components({
-      resolvers: [VantResolver()]
-    })
-  ],
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
-    }
-  },
-  server: {
-    host: '0.0.0.0',
-    port: 9000,
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:9001',
-        changeOrigin: true
-      },
-      '/socket.io': {
-        target: 'http://127.0.0.1:9001',
-        ws: true
+export default defineConfig(({ mode }) => {
+  // 加载环境变量
+  const env = loadEnv(mode, process.cwd())
+  
+  return {
+    plugins: [
+      vue(),
+      Components({
+        resolvers: [VantResolver()]
+      })
+    ],
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url))
       }
-    }
-  },
-  css: {
-    postcss: {
-      plugins: [
-        {
-          postcssPlugin: 'postcss-px-to-viewport',
-          viewportWidth: 375,
-          unitPrecision: 5,
-          viewportUnit: 'vw',
-          selectorBlackList: [],
-          minPixelValue: 1,
-          mediaQuery: false
+    },
+    server: {
+      host: '0.0.0.0',
+      port: 8008,
+      proxy: {
+            '/console': {
+          target: env.VITE_API_BASE_URL,
+          changeOrigin: true,
+          // rewrite: (path) => path.replace(/^\/api/, '')  // 去掉 /api 前缀
+        },
+        '/api': {
+          target: env.VITE_API_BASE_URL,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api/, '')  // 去掉 /api 前缀
+        },
+        '/socket.io': {
+          target: env.VITE_API_BASE_URL,
+          ws: true
         }
-      ]
-    }
-  },
-  build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
-    sourcemap: false,
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true
+      }
+    },
+    css: {
+      postcss: {
+        plugins: [
+          {
+            postcssPlugin: 'postcss-px-to-viewport',
+            viewportWidth: 375,
+            unitPrecision: 5,
+            viewportUnit: 'vw',
+            selectorBlackList: [],
+            minPixelValue: 1,
+            mediaQuery: false
+          }
+        ]
+      }
+    },
+    build: {
+      outDir: 'dist',
+      assetsDir: 'assets',
+      sourcemap: false,
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true
+        }
       }
     }
   }

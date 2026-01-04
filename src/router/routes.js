@@ -54,6 +54,12 @@ export const routes = [
     meta: { title: '摇一摇', requiresAuth: true, requiresRegistered: true }
   },
   {
+    path: '/shake/join',
+    name: 'ShakeJoin',
+    component: () => import('@/views/shake/Join.vue'),
+    meta: { title: '加入游戏', requiresAuth: true, requiresRegistered: true }
+  },
+  {
     path: '/shake/playing',
     name: 'ShakePlaying',
     component: () => import('@/views/shake/Playing.vue'),
@@ -78,36 +84,18 @@ export const routes = [
     meta: { title: '奖品详情', requiresAuth: true, requiresRegistered: true }
   },
 
-  // ========== 大屏页面(游客可看) ==========
+  // ========== 控制台(主持人使用，无需登录) ==========
   {
     path: '/screen',
     name: 'Screen',
-    component: () => import('@/views/screen/Index.vue'),
-    meta: { title: '互动大屏', requiresAuth: false }
+    component: () => import('@/views/console/Index.vue'),
+    meta: { title: '活动控制台', requiresAuth: false }
   },
   {
-    path: '/screen/checkin',
-    name: 'ScreenCheckIn',
-    component: () => import('@/views/screen/CheckIn.vue'),
-    meta: { title: '签到墙', requiresAuth: false }
-  },
-  {
-    path: '/screen/danmaku',
-    name: 'ScreenDanmaku',
-    component: () => import('@/views/screen/Danmaku.vue'),
-    meta: { title: '弹幕墙', requiresAuth: false }
-  },
-  {
-    path: '/screen/shake',
-    name: 'ScreenShake',
-    component: () => import('@/views/screen/Shake.vue'),
-    meta: { title: '摇一摇排行', requiresAuth: false }
-  },
-  {
-    path: '/screen/draw',
-    name: 'ScreenDraw',
-    component: () => import('@/views/screen/Draw.vue'),
-    meta: { title: '抽奖大屏', requiresAuth: false }
+    path: '/screen/game',
+    name: 'ScreenGame',
+    component: () => import('@/views/console/Game.vue'),
+    meta: { title: '游戏控制', requiresAuth: false }
   },
 
   // ========== 错误页面 ==========

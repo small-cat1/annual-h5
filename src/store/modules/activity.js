@@ -1,93 +1,133 @@
-// 活动状态管理
-import { defineStore } from 'pinia'
-import { getCurrentActivity, getActivityDetail } from '@/api/activity'
+import { getActivityDetail } from "@/api/console/activity";
+import { defineStore } from "pinia";
 
-export const useActivityStore = defineStore('activity', {
+export const useActivityStore = defineStore("activity", {
   state: () => ({
-    currentActivity: null,
-    isLoading: false,
-    lastFetchTime: 0
+    // 活动ID
+    activityId: null,
+
+    // 活动配置信息
+    config: {
+      title: "",
+      logo: "",
+      cover: "",
+      checkInEnabled: true,
+      danmakuEnabled: true,
+      danmakuAudit: false,
+      danmakuDrawEnabled: false, // 弹幕抽奖开关
+      winnerExclude: false,
+    },
+
+    // 配置是否已加载
+    configLoaded: false,
+
+    // 加载失败
+    loadError: false,
   }),
 
   getters: {
-    // 活动ID
-    activityId: (state) => state.currentActivity?.ID,
-    
-    // 活动标题
-    activityTitle: (state) => state.currentActivity?.title || '年会互动',
-    
-    // 活动状态 0未开始 1进行中 2已结束
-    activityStatus: (state) => state.currentActivity?.status ?? 0,
-    
-    // 是否开启签到
-    checkInEnabled: (state) => state.currentActivity?.checkInEnabled === 1,
-    
-    // 是否开启弹幕
-    danmakuEnabled: (state) => state.currentActivity?.danmakuEnabled === 1,
-    
-    // 弹幕是否需要审核
-    danmakuAudit: (state) => state.currentActivity?.danmakuAudit === 1,
-    
-    // 是否正在进行中
-    isOngoing: (state) => state.currentActivity?.status === 1,
-    
-    // 活动开始时间
-    startTime: (state) => state.currentActivity?.startTime,
-    
-    // 活动结束时间
-    endTime: (state) => state.currentActivity?.endTime
+    // 是否有有效的活动ID
+    hasActivityId: (state) => !!state.activityId,
+
+    // 是否可以开始业务（有ID且配置已加载）
+    isReady: (state) =>
+      !!state.activityId && state.configLoaded && !state.loadError,
   },
 
   actions: {
-    /**
-     * 获取当前活动
-     */
-    async fetchCurrentActivity(force = false) {
-      // 缓存5分钟
-      const cacheTime = 5 * 60 * 1000
-      if (!force && this.currentActivity && Date.now() - this.lastFetchTime < cacheTime) {
-        return this.currentActivity
+    // 设置活动ID
+    setActivityId(id) {
+      if (id) {
+        this.activityId = Number(id);
+        // 持久化到localStorage
+        localStorage.setItem("annual_activity_id", id);
+      }
+    },
+
+    // 从本地恢复活动ID
+    restoreActivityId() {
+      const savedId = localStorage.getItem("annual_activity_id");
+      if (savedId) {
+        this.activityId = Number(savedId);
+      }
+      return this.activityId;
+    },
+
+    // 加载活动配置
+    async loadConfig() {
+      if (!this.activityId) {
+        this.loadError = true;
+        return false;
       }
 
-      this.isLoading = true
       try {
-        const res = await getCurrentActivity()
-        this.currentActivity = res.data
-        this.lastFetchTime = Date.now()
-        return res.data
-      } finally {
-        this.isLoading = false
+        const res = await getActivityDetail(this.activityId);
+        if (res.code === 0 && res.data) {
+          this.config = {
+            title: res.data.title || "",
+            logo: res.data.logo || "",
+            cover: res.data.cover || "",
+            checkInEnabled: res.data.checkInEnabled !== 0,
+            danmakuEnabled: res.data.danmakuEnabled !== 0,
+            danmakuAudit: res.data.danmakuAudit === 1,
+            danmakuDrawEnabled: res.data.danmakuDrawEnabled === 1,
+            winnerExclude: res.data.winnerExclude === 1,
+          };
+          this.configLoaded = true;
+          this.loadError = false;
+          return true;
+        } else {
+          this.loadError = true;
+          return false;
+        }
+      } catch (e) {
+        console.error("加载活动配置失败", e);
+        this.loadError = true;
+        return false;
       }
     },
 
-    /**
-     * 获取活动详情
-     */
-    async fetchActivityDetail(id) {
-      this.isLoading = true
-      try {
-        const res = await getActivityDetail(id)
-        this.currentActivity = res.data
-        this.lastFetchTime = Date.now()
-        return res.data
-      } finally {
-        this.isLoading = false
+    // 初始化（恢复ID + 加载配置）
+    async init(routeActivityId) {
+      // 优先使用路由参数
+      if (routeActivityId) {
+        this.setActivityId(routeActivityId);
+      } else {
+        // 尝试从本地恢复
+        this.restoreActivityId();
       }
+
+      // 没有活动ID，直接返回失败
+      if (!this.activityId) {
+        this.loadError = true;
+        return false;
+      }
+
+      // 如果配置已加载，不重复请求
+      if (this.configLoaded) {
+        return true;
+      }
+
+      // 加载配置
+      return await this.loadConfig();
     },
 
-    /**
-     * 更新活动信息
-     */
-    updateActivity(data) {
-      this.currentActivity = { ...this.currentActivity, ...data }
+    // 重置
+    reset() {
+      this.activityId = null;
+      this.config = {
+        title: "",
+        logo: "",
+        cover: "",
+        checkInEnabled: true,
+        danmakuEnabled: true,
+        danmakuAudit: false,
+        danmakuDrawEnabled: false,
+        winnerExclude: false,
+      };
+      this.configLoaded = false;
+      this.loadError = false;
+      localStorage.removeItem("annual_activity_id");
     },
-
-    /**
-     * 清除活动信息
-     */
-    clearActivity() {
-      this.currentActivity = null
-      this.lastFetchTime = 0
-    }
-  }
-})
+  },
+});

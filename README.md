@@ -115,14 +115,13 @@ npm run preview
 ### 开发环境 (.env.development)
 
 ```env
-VITE_APP_BASE_API=/api
 VITE_APP_WS_URL=ws://localhost:9001
 ```
 
 ### 生产环境 (.env.production)
 
 ```env
-VITE_APP_BASE_API=https://your-domain.com/api
+VITE_API_BASE_URL=https://your-domain.com/api
 VITE_APP_WS_URL=wss://your-domain.com
 ```
 

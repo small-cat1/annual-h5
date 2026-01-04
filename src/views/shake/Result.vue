@@ -1,30 +1,35 @@
 <template>
-  <div class="result-page" :class="{ 'is-winner': gameStore.isWinner }">
+  <div class="result-page" :class="{ 'is-winner': isWinner }">
     <van-nav-bar 
       title="游戏结果" 
       left-arrow 
-      @click-left="$router.back()"
+      @click-left="goHome"
     />
     
-    <div class="result-content">
+    <!-- 加载中 -->
+    <div v-if="loading" class="loading-box">
+      <van-loading size="48" />
+      <p>加载中...</p>
+    </div>
+    
+    <div v-else class="result-content">
       <!-- 中奖 -->
-      <div v-if="gameStore.isWinner" class="winner-box celebrate">
+      <div v-if="isWinner" class="winner-box">
         <div class="trophy">🏆</div>
         <h1>恭喜获奖！</h1>
-        <div class="prize-info" v-if="gameStore.winInfo">
+        <div class="prize-info" v-if="winPrize">
           <van-image
             width="120"
             height="120"
             radius="12"
-            :src="gameStore.winInfo.prize?.image"
+            :src="winPrize.image"
             fit="cover"
           />
-          <h3>{{ gameStore.winInfo.prize?.name }}</h3>
-          <van-tag type="warning">{{ formatPrizeLevel(gameStore.winInfo.prize?.level) }}</van-tag>
+          <h3>{{ winPrize.name }}</h3>
         </div>
         <div class="score-info">
-          <p>摇动次数：<span>{{ gameStore.shakeCount }}</span> 次</p>
-          <p>最终排名：<span>第 {{ gameStore.myRank }} 名</span></p>
+          <p>摇动次数：<span>{{ myScore }}</span> 次</p>
+          <p>最终排名：<span>第 {{ myRank }} 名</span></p>
         </div>
         <van-button type="primary" block round @click="viewPrize">
           查看我的奖品
@@ -37,12 +42,12 @@
         <h1>继续加油！</h1>
         <p class="tips">很遗憾，本轮未能获奖</p>
         <div class="score-info">
-          <p>摇动次数：<span>{{ gameStore.shakeCount }}</span> 次</p>
-          <p>最终排名：<span>第 {{ gameStore.myRank }} 名</span></p>
+          <p>摇动次数：<span>{{ myScore }}</span> 次</p>
+          <p>最终排名：<span>第 {{ myRank }} 名</span></p>
         </div>
         <p class="encourage">下一轮还有机会，请继续参与！</p>
-        <van-button type="primary" block round @click="goBack">
-          返回等待
+        <van-button type="primary" block round @click="goHome">
+          返回首页
         </van-button>
       </div>
       
@@ -53,12 +58,12 @@
         </div>
         <div class="ranking-list">
           <div 
-            v-for="(item, index) in gameStore.ranking" 
+            v-for="(item, index) in ranking" 
             :key="item.userId"
             class="ranking-item"
             :class="{ 
-              'is-me': item.userId === userStore.userId,
-              'is-winner': index < gameStore.currentRound?.winnerCount
+              'is-me': item.userId == userId,
+              'is-winner': index < winnerCount
             }"
           >
             <span class="rank">{{ formatRank(index + 1) }}</span>
@@ -69,51 +74,86 @@
               :src="item.user?.avatar || defaultAvatar"
               fit="cover"
             />
-            <span class="name">{{ item.user?.realName || item.user?.nickname }}</span>
+            <span class="name">{{ item.user?.realName || item.user?.nickname || '未知' }}</span>
             <span class="score">{{ item.score }} 次</span>
-            <van-tag v-if="index < gameStore.currentRound?.winnerCount" type="danger" size="small">
+            <van-tag v-if="index < winnerCount" type="danger" size="small">
               获奖
             </van-tag>
           </div>
         </div>
+        <van-empty v-if="ranking.length === 0" description="暂无数据" />
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useUserStore, useGameStore } from '@/store'
-import { formatPrizeLevel, formatRank } from '@/utils/format'
-import { getRoundResult } from '@/api/shake'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { getRoundResult, getMyScore, getRoundDetail } from '@/api/shake'
+import { getRanking } from '@/api/console'
 
 const router = useRouter()
-const userStore = useUserStore()
-const gameStore = useGameStore()
+const route = useRoute()
 
 const defaultAvatar = 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
+const userId = localStorage.getItem('userId') || ''
 
-const viewPrize = () => {
-  router.push('/prize')
+// 状态
+const loading = ref(true)
+const ranking = ref([])
+const myRank = ref(0)
+const myScore = ref(0)
+const isWinner = ref(false)
+const winPrize = ref(null)
+const winnerCount = ref(3)
+
+// 格式化排名
+const formatRank = (rank) => {
+  if (rank === 1) return '🥇'
+  if (rank === 2) return '🥈'
+  if (rank === 3) return '🥉'
+  return rank
 }
 
-const goBack = () => {
-  gameStore.resetGame()
-  router.replace('/shake')
-}
+// 跳转
+const viewPrize = () => router.push('/prize')
+const goHome = () => router.replace('/')
 
-// 获取最终结果
+// 获取结果
 const fetchResult = async () => {
-  if (!gameStore.roundId) return
+  const roundId = route.query.roundId
+  
+  if (!roundId) {
+    loading.value = false
+    return
+  }
   
   try {
-    const res = await getRoundResult(gameStore.roundId)
-    gameStore.updateRanking(res.data.ranking || [])
-    gameStore.updateMyRank(res.data.myRank)
-    gameStore.setWinInfo(res.data.isWinner, res.data.winInfo)
+    // 获取场次信息
+    const roundRes = await getRoundDetail(roundId)
+    if (roundRes.code === 0) {
+      winnerCount.value = roundRes.data?.winnerCount || 3
+      winPrize.value = roundRes.data?.prize
+    }
+
+    // 获取排行榜
+    const rankingRes = await getRanking(roundId, 50)
+    if (rankingRes.code === 0) {
+      ranking.value = rankingRes.data?.list || []
+      
+      // 找到自己
+      const myData = ranking.value.find(item => item.userId == userId)
+      if (myData) {
+        myRank.value = myData.rank
+        myScore.value = myData.score
+        isWinner.value = myData.rank <= winnerCount.value
+      }
+    }
   } catch (error) {
     console.error('获取结果失败:', error)
+  } finally {
+    loading.value = false
   }
 }
 
@@ -138,6 +178,19 @@ onMounted(() => {
         color: #fff;
       }
     }
+  }
+}
+
+.loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 50vh;
+  
+  p {
+    margin-top: 16px;
+    color: #666;
   }
 }
 
