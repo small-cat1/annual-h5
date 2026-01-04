@@ -1,5 +1,4 @@
-// 微信 SDK 工具
-import { get } from './request'
+import { getWxAppId } from '@/api/auth'
 
 // 缓存微信配置
 let wxConfigCache = null
@@ -12,7 +11,7 @@ export async function getWxAppConfig() {
   if (wxConfigCache) return wxConfigCache
   
   try {
-    const res = await get('/h5/config/wechat', {}, { showLoading: false, showError: false })
+    const res = await getWxAppId()
     wxConfigCache = res.data
     return res.data
   } catch (e) {

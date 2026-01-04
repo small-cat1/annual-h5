@@ -10,6 +10,15 @@ export function wechatLogin(data) {
   return post('/h5/auth/wechat', data)
 }
 
+
+/**
+ * 获取微信AppID（用于OAuth授权登录）
+ * @returns {Promise}
+ */
+export function getWxAppId() {
+  return get('/h5/config/wechat', {}, { showLoading: false, showError: false })
+}
+
 /**
  * 获取微信授权配置
  * @param {object} params { url }
