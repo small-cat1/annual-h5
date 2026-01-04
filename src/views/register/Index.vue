@@ -38,18 +38,13 @@
           v-model="form.department"
           name="department"
           label="部门"
-          placeholder="请选择部门"
-          readonly
-          is-link
-          :rules="[{ required: true, message: '请选择部门' }]"
-          @click="showDepartmentPicker = true"
+          placeholder="请输入部门（选填）"
         />
         <van-field
           v-model="form.employeeNo"
           name="employeeNo"
           label="工号"
-          placeholder="请输入工号"
-          :rules="[{ required: true, message: '请输入工号' }]"
+          placeholder="请输入工号（选填）"
         />
       </van-cell-group>
 
@@ -65,15 +60,6 @@
         </van-button>
       </div>
     </van-form>
-
-    <!-- 部门选择器 -->
-    <van-popup v-model:show="showDepartmentPicker" position="bottom" round>
-      <van-picker
-        :columns="departmentOptions"
-        @confirm="onDepartmentConfirm"
-        @cancel="showDepartmentPicker = false"
-      />
-    </van-popup>
   </div>
 </template>
 
@@ -96,26 +82,6 @@ const form = reactive({
 })
 
 const submitting = ref(false)
-const showDepartmentPicker = ref(false)
-
-// 部门选项（可从后端获取）
-const departmentOptions = [
-  '技术部',
-  '产品部',
-  '设计部',
-  '运营部',
-  '市场部',
-  '销售部',
-  '财务部',
-  '人事部',
-  '行政部',
-  '其他'
-]
-
-const onDepartmentConfirm = ({ selectedOptions }) => {
-  form.department = selectedOptions[0]?.text || selectedOptions[0]
-  showDepartmentPicker.value = false
-}
 
 const handleSubmit = async () => {
   submitting.value = true
