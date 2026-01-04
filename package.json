@@ -10,26 +10,27 @@
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix"
   },
   "dependencies": {
-    "vue": "^3.4.0",
-    "vue-router": "^4.2.0",
+    "@vant/use": "^1.6.0",
+    "axios": "^1.6.0",
+    "dayjs": "^1.11.0",
+    "lodash-es": "^4.17.21",
     "pinia": "^2.1.0",
     "pinia-plugin-persistedstate": "^3.2.0",
-    "axios": "^1.6.0",
-    "vant": "^4.8.0",
-    "@vant/use": "^1.6.0",
-    "socket.io-client": "^4.7.0",
     "qrcode.vue": "^3.4.0",
-    "dayjs": "^1.11.0",
-    "lodash-es": "^4.17.21"
+    "socket.io-client": "^4.7.0",
+    "vant": "^4.8.0",
+    "vue": "^3.4.0",
+    "vue-router": "^4.2.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.0.0",
-    "vite": "^5.0.0",
-    "sass": "^1.69.0",
-    "unplugin-vue-components": "^0.26.0",
     "@vant/auto-import-resolver": "^1.2.0",
-    "postcss-px-to-viewport": "^1.1.1",
+    "@vitejs/plugin-vue": "^5.0.0",
     "eslint": "^8.56.0",
-    "eslint-plugin-vue": "^9.20.0"
+    "eslint-plugin-vue": "^9.20.0",
+    "postcss-px-to-viewport": "^1.1.1",
+    "sass": "^1.69.0",
+    "terser": "^5.44.1",
+    "unplugin-vue-components": "^0.26.0",
+    "vite": "^5.0.0"
   }
 }
