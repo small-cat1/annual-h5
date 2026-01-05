@@ -1,5 +1,5 @@
 // Token 管理
-import { getStorage, setStorage, removeStorage } from './storage'
+import { getSession, setSession, removeSession } from './storage'
 
 const TOKEN_KEY = 'token'
 const USER_KEY = 'user'
@@ -9,7 +9,7 @@ const USER_KEY = 'user'
  * @returns {string|null}
  */
 export function getToken() {
-  return getStorage(TOKEN_KEY)
+  return getSession(TOKEN_KEY)
 }
 
 /**
@@ -17,14 +17,14 @@ export function getToken() {
  * @param {string} token
  */
 export function setToken(token) {
-  setStorage(TOKEN_KEY, token)
+  setSession(TOKEN_KEY, token)
 }
 
 /**
  * 移除 Token
  */
 export function removeToken() {
-  removeStorage(TOKEN_KEY)
+  removeSession(TOKEN_KEY)
 }
 
 /**
@@ -32,7 +32,7 @@ export function removeToken() {
  * @returns {object|null}
  */
 export function getUser() {
-  return getStorage(USER_KEY)
+  return getSession(USER_KEY)
 }
 
 /**
@@ -40,14 +40,14 @@ export function getUser() {
  * @param {object} user
  */
 export function setUser(user) {
-  setStorage(USER_KEY, user)
+  setSession(USER_KEY, user)
 }
 
 /**
  * 移除用户信息
  */
 export function removeUser() {
-  removeStorage(USER_KEY)
+  removeSession(USER_KEY)
 }
 
 /**
