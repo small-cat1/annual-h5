@@ -8,41 +8,43 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { showToast } from 'vant'
-import { useUserStore } from '@/store/modules/user'
-import { getCodeFromUrl } from '@/utils/wechat'
+import { useUserStore } from "@/store/modules/user";
+import { getCodeFromUrl } from "@/utils/wechat";
+import { showToast } from "vant";
+import { onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
-const router = useRouter()
-const route = useRoute()
-const userStore = useUserStore()
+const router = useRouter();
+const route = useRoute();
+const userStore = useUserStore();
 
-const statusText = ref('正在授权中...')
+const statusText = ref("正在授权中...");
 
 onMounted(async () => {
-  const code = getCodeFromUrl()
-  
+  const code = getCodeFromUrl();
+
   if (!code) {
-    showToast('授权失败，请重试')
-    router.replace('/auth/login')
-    return
+    showToast("授权失败，请重试");
+    router.replace("/auth/login");
+    return;
   }
 
   try {
-    statusText.value = '正在登录...'
-    await userStore.wechatLogin(code)
-    statusText.value = '登录成功'
-    
-    // 直接跳转目标页（默认首页）
-    const redirect = route.query.redirect || '/'
-    router.replace(decodeURIComponent(redirect))
+    statusText.value = "正在登录...";
+    await userStore.wechatLogin(code);
+    statusText.value = "登录成功";
+
+    // 获取重定向地址
+    const redirect = route.query.redirect || "/";
+    const decodedRedirect = decodeURIComponent(redirect);
+
+    window.location.replace(decodedRedirect);
   } catch (error) {
-    console.error('登录失败:', error)
-    showToast('登录失败，请重试')
-    router.replace('/auth/login')
+    console.error("登录失败:", error);
+    showToast("登录失败，请重试");
+    router.replace("/auth/login");
   }
-})
+});
 </script>
 
 <style lang="scss" scoped>

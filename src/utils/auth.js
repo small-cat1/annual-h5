@@ -1,5 +1,8 @@
 // Token 管理
-import { getSession, setSession, removeSession } from './storage'
+import { 
+  getStorage, setStorage, removeStorage,
+  getSession, setSession, removeSession 
+} from './storage'
 
 const TOKEN_KEY = 'token'
 const USER_KEY = 'user'
