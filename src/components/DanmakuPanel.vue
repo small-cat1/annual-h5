@@ -5,23 +5,21 @@
       <h2>实时弹幕</h2>
       <span class="danmaku-count">{{ danmakuList.length }} 条</span>
     </div>
-    
+
     <div class="panel-body">
       <div class="danmaku-list" ref="listRef">
         <TransitionGroup name="danmaku">
-          <div 
-            v-for="item in danmakuList" 
-            :key="item.id"
-            class="danmaku-item"
-          >
+          <div v-for="item in danmakuList" :key="item.id" class="danmaku-item">
             <div class="danmaku-avatar">
               <img :src="item.user?.avatar || defaultAvatar" alt="" />
             </div>
             <div class="danmaku-content">
-              <span class="danmaku-user">{{ item.user?.nickname || '匿名' }}</span>
+              <span class="danmaku-user">{{
+                item.user?.nickname || "匿名"
+              }}</span>
               <span class="danmaku-text">{{ item.content }}</span>
             </div>
-            <span class="danmaku-time">{{ formatTime(item.createdAt) }}</span>
+            <span class="danmaku-time">{{ formatDate(item.createdAt) }}</span>
           </div>
         </TransitionGroup>
         <div v-if="danmakuList.length === 0" class="empty-state">
@@ -34,100 +32,97 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { getDanmakuList } from '@/api/console/danmaku'
-
+import { getDanmakuList } from "@/api/console/danmaku";
+import { formatDate } from "@/utils/format";
+import { nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 const props = defineProps({
   activityId: {
     type: [Number, String],
-    required: true
+    required: true,
   },
   limit: {
     type: Number,
-    default: 20
+    default: 20,
   },
   pollInterval: {
     type: Number,
-    default: 3000
-  }
-})
+    default: 3000,
+  },
+});
 
-const defaultAvatar = 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
+const defaultAvatar = "https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg";
 
-const danmakuList = ref([])
-const listRef = ref(null)
-let pollTimer = null
-
-// 格式化时间
-const formatTime = (date) => {
-  if (!date) return ''
-  const d = new Date(date)
-  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
-}
+const danmakuList = ref([]);
+const listRef = ref(null);
+let pollTimer = null;
 
 // 获取弹幕列表
 const fetchDanmakuList = async () => {
-  if (!props.activityId) return
-  
+  if (!props.activityId) return;
+
   try {
-    const res = await getDanmakuList(props.activityId, { limit: props.limit })
+    const res = await getDanmakuList(props.activityId, { limit: props.limit });
     if (res.code === 0) {
-      const newList = res.data?.list || []
+      const newList = res.data?.list || [];
       // 检查是否有新弹幕
       if (newList.length > 0 && danmakuList.value.length > 0) {
         if (newList[0].id !== danmakuList.value[0]?.id) {
-          danmakuList.value = newList
-          scrollToTop()
+          danmakuList.value = newList;
+          scrollToTop();
         }
       } else {
-        danmakuList.value = newList
+        danmakuList.value = newList;
       }
     }
   } catch (e) {
-    console.error('获取弹幕列表失败', e)
+    console.error("获取弹幕列表失败", e);
   }
-}
+};
 
 // 滚动到顶部
 const scrollToTop = () => {
   nextTick(() => {
     if (listRef.value) {
-      listRef.value.scrollTop = 0
+      listRef.value.scrollTop = 0;
     }
-  })
-}
+  });
+};
 
 // 开始轮询
 const startPolling = () => {
-  stopPolling()
-  fetchDanmakuList()
-  pollTimer = setInterval(fetchDanmakuList, props.pollInterval)
-}
+  stopPolling();
+  fetchDanmakuList();
+  pollTimer = setInterval(fetchDanmakuList, props.pollInterval);
+};
 
 // 停止轮询
 const stopPolling = () => {
   if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
+    clearInterval(pollTimer);
+    pollTimer = null;
   }
-}
+};
 
 // 监听activityId变化
-watch(() => props.activityId, (newVal) => {
-  if (newVal) {
-    startPolling()
-  }
-}, { immediate: true })
+watch(
+  () => props.activityId,
+  (newVal) => {
+    if (newVal) {
+      startPolling();
+    }
+  },
+  { immediate: true }
+);
 
 onMounted(() => {
   if (props.activityId) {
-    startPolling()
+    startPolling();
   }
-})
+});
 
 onUnmounted(() => {
-  stopPolling()
-})
+  stopPolling();
+});
 
 // // 暴露方法供外部调用
 // defineExpose({
@@ -156,7 +151,11 @@ $text-light: #fff5e6;
   align-items: center;
   gap: 10px;
   padding: 16px 20px;
-  background: linear-gradient(to right, rgba(154, 27, 48, 0.5), rgba(40, 15, 15, 0.5));
+  background: linear-gradient(
+    to right,
+    rgba(154, 27, 48, 0.5),
+    rgba(40, 15, 15, 0.5)
+  );
   border-bottom: 1px solid rgba(255, 215, 0, 0.1);
 
   .panel-icon {

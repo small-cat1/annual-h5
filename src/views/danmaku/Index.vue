@@ -171,7 +171,7 @@ const fetchDanmaku = async () => {
 
 // WebSocket 监听新弹幕
 const setupWebSocket = () => {
-  const wsUrl = import.meta.env.VITE_APP_WS_URL + "/danmaku";
+  const wsUrl = import.meta.env.VITE_APP_WS_URL + "/h5";
   websocket.connect(wsUrl);
 
   websocket.on("new_danmaku", (data) => {
