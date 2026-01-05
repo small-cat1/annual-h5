@@ -65,14 +65,8 @@ const loading = ref(true);
 
 const init = async () => {
   loading.value = true;
-
   // 从路由获取活动ID
   const activityId = route.query.activityId;
-
-  if (!activityId) {
-    loading.value = false;
-    return;
-  }
 
   // 初始化活动信息
   const success = await activityStore.init(activityId);
@@ -90,6 +84,14 @@ const retry = () => {
 };
 
 onMounted(() => {
+  await router.isReady();
+  // 此时 route.query 一定有值了
+  const activityId = route.query.activityId || new URLSearchParams(window.location.search).get('activityId');
+  
+  if (!activityId) {
+    loading.value = false;
+    return;
+  }
   init();
 });
 </script>
