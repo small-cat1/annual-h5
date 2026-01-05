@@ -1,16 +1,16 @@
 <template>
   <div class="status-page">
     <van-nav-bar title="审核状态" left-arrow @click-left="$router.back()" />
-    
+
     <div class="status-content">
       <!-- 待审核 -->
       <div v-if="auditStatus === 0" class="status-box pending">
         <van-icon name="clock-o" size="64" color="#ff9800" />
         <h2>等待审核中</h2>
         <p>您的签到信息已提交，请耐心等待管理员审核</p>
-        <van-button 
-          type="default" 
-          round 
+        <van-button
+          type="default"
+          round
           size="small"
           @click="refreshStatus"
           :loading="refreshing"
@@ -34,7 +34,7 @@
         <van-icon name="close" size="64" color="#f44336" />
         <h2>审核未通过</h2>
         <p>很抱歉，您的签到未通过审核</p>
-        <p class="reason">拒绝原因：{{ rejectReason || '未填写' }}</p>
+        <p class="reason">拒绝原因：{{ rejectReason || "未填写" }}</p>
         <van-button type="primary" round block @click="goCheckIn">
           重新签到
         </van-button>
@@ -52,7 +52,12 @@
     </div>
 
     <!-- 签到信息 -->
-    <van-cell-group v-if="checkInInfo?.isCheckedIn" inset title="签到信息" class="info-group">
+    <van-cell-group
+      v-if="checkInInfo?.isCheckedIn"
+      inset
+      title="签到信息"
+      class="info-group"
+    >
       <van-cell title="真实姓名" :value="checkInInfo.realName" />
       <van-cell title="手机号" :value="checkInInfo.phone" />
       <van-cell title="部门" :value="checkInInfo.department || '-'" />
@@ -62,52 +67,56 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { showToast } from 'vant'
-import { useUserStore, useActivityStore } from '@/store'
+import { useActivityStore, useUserStore } from "@/store";
+import { showToast } from "vant";
+import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 
-const router = useRouter()
-const userStore = useUserStore()
-const activityStore = useActivityStore()
+const router = useRouter();
+const userStore = useUserStore();
+const activityStore = useActivityStore();
 
-const refreshing = ref(false)
+const refreshing = ref(false);
 
-const checkInInfo = computed(() => userStore.checkInInfo)
-const auditStatus = computed(() => userStore.auditStatus)
-const rejectReason = computed(() => checkInInfo.value?.rejectReason || '')
+const checkInInfo = computed(() => userStore.checkInInfo);
+const auditStatus = computed(() => userStore.auditStatus);
+const rejectReason = computed(() => checkInInfo.value?.rejectReason || "");
 
 const refreshStatus = async () => {
-  refreshing.value = true
+  refreshing.value = true;
   try {
-    await userStore.fetchUserInfo(activityStore.activityId)
-    
+    await userStore.fetchUserInfo(activityStore.activityId);
+
     if (userStore.auditStatus === 1) {
-      showToast({ type: 'success', message: '审核已通过' })
+      showToast({ type: "success", message: "审核已通过" });
     } else {
-      showToast('状态已刷新')
+      showToast("状态已刷新");
     }
   } catch (error) {
-    console.error('刷新失败:', error)
+    console.error("刷新失败:", error);
   } finally {
-    refreshing.value = false
+    refreshing.value = false;
   }
-}
+};
 
 const goHome = () => {
-  router.replace('/')
-}
+  router.replace("/");
+};
 
 const goCheckIn = () => {
-  router.replace('/checkIn')
-}
+  router.replace("/checkIn");
+};
 
 onMounted(async () => {
+  // 确保活动信息已加载（从 localStorage 获取 activityId）
   if (!activityStore.activityId) {
-    await activityStore.init()
+    const activityId = localStorage.getItem("activityId");
+    if (activityId) {
+      await activityStore.init(activityId);
+    }
   }
-  await userStore.fetchUserInfo(activityStore.activityId)
-})
+  await userStore.fetchUserInfo(activityStore.activityId);
+});
 </script>
 
 <style lang="scss" scoped>
@@ -125,19 +134,19 @@ onMounted(async () => {
   border-radius: 16px;
   padding: 40px 20px;
   text-align: center;
-  
+
   h2 {
     margin: 20px 0 12px;
     font-size: 20px;
     color: #333;
   }
-  
+
   p {
     font-size: 14px;
     color: #666;
     margin-bottom: 12px;
   }
-  
+
   .reason {
     color: #f44336;
     font-size: 12px;
@@ -146,7 +155,7 @@ onMounted(async () => {
     border-radius: 4px;
     margin: 16px 0;
   }
-  
+
   .van-button {
     margin-top: 20px;
   }
