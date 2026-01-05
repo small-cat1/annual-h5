@@ -24,7 +24,7 @@ export const routes = [
   {
     path: "/entry",
     name: "Entry",
-    component: () => import("@/views/entry/Index.vue"),
+    component: () => import("@/views/entry/index.vue"),
     meta: { title: "进入活动", requiresAuth: false },
   },
   {
