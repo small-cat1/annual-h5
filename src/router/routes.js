@@ -1,5 +1,13 @@
 // 路由表
 export const routes = [
+  // ========== 活动入口 ==========
+  {
+    path: "/entry",
+    name: "Entry",
+    component: () => import("@/views/entry/index.vue"),
+    meta: { title: "进入活动", requiresAuth: false },
+  },
+
   // ========== 授权相关 ==========
   {
     path: "/auth/login",
@@ -20,12 +28,6 @@ export const routes = [
     name: "Home",
     component: () => import("@/views/home/Index.vue"),
     meta: { title: "首页", requiresAuth: true },
-  },
-  {
-    path: "/entry",
-    name: "Entry",
-    component: () => import("@/views/entry/index.vue"),
-    meta: { title: "进入活动", requiresAuth: false },
   },
   {
     path: "/checkIn",

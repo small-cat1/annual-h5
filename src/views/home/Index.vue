@@ -1,122 +1,173 @@
 <template>
-  <div class="home-page">
-    <!-- 头部 -->
-    <div class="home-header">
-      <div class="user-info">
-        <van-image
-          round
-          width="48"
-          height="48"
-          :src="userStore.avatar || defaultAvatar"
-          fit="cover"
-        />
-        <div class="user-meta">
-          <span class="nickname">{{
-            userStore.userInfo?.realName || userStore.nickname
-          }}</span>
-          <van-tag
-            v-if="userStore.isRegistered && userStore.auditStatus === 1"
-            type="success"
-            size="small"
-            >已签到</van-tag
+  <div class="home-container">
+    <!-- 加载中 -->
+    <div v-if="loading" class="app-loading">
+      <van-loading type="spinner" color="#ff5722" size="36" />
+      <p>加载中...</p>
+    </div>
+
+    <!-- 无活动ID -->
+    <div v-else-if="!activityStore.activityId" class="app-error">
+      <div class="error-content">
+        <van-icon name="warning-o" size="64" color="#ff9800" />
+        <h2>未指定活动</h2>
+        <p>请通过正确的链接访问</p>
+      </div>
+    </div>
+
+    <!-- 活动加载失败 -->
+    <div v-else-if="activityStore.loadError" class="app-error">
+      <div class="error-content">
+        <van-icon name="close" size="64" color="#f44336" />
+        <h2>活动不存在</h2>
+        <p>请检查链接是否正确</p>
+        <van-button type="primary" round @click="retry">重试</van-button>
+      </div>
+    </div>
+
+    <!-- 活动未开始 -->
+    <div v-else-if="activityStore.activityStatus === 0" class="app-error">
+      <div class="error-content">
+        <van-icon name="clock-o" size="64" color="#2196f3" />
+        <h2>活动未开始</h2>
+        <p>{{ activityStore.config?.title }}</p>
+        <p class="sub-text">
+          开始时间：{{ formatDate(activityStore.config?.startTime) }}
+        </p>
+        <van-button type="primary" round @click="retry">刷新</van-button>
+      </div>
+    </div>
+
+    <!-- 活动已结束 -->
+    <div v-else-if="activityStore.activityStatus === 2" class="app-error">
+      <div class="error-content">
+        <van-icon name="passed" size="64" color="#9e9e9e" />
+        <h2>活动已结束</h2>
+        <p>{{ activityStore.config?.title }}</p>
+        <p class="sub-text">感谢您的参与！</p>
+      </div>
+    </div>
+
+    <!-- 正常显示首页内容 -->
+    <div v-else class="home-page">
+      <!-- 头部 -->
+      <div class="home-header">
+        <div class="user-info">
+          <van-image
+            round
+            width="48"
+            height="48"
+            :src="userStore.avatar || defaultAvatar"
+            fit="cover"
+          />
+          <div class="user-meta">
+            <span class="nickname">{{
+              userStore.userInfo?.realName || userStore.nickname
+            }}</span>
+            <van-tag
+              v-if="userStore.isRegistered && userStore.auditStatus === 1"
+              type="success"
+              size="small"
+              >已签到</van-tag
+            >
+            <van-tag
+              v-else-if="userStore.isRegistered && userStore.auditStatus === 0"
+              type="warning"
+              size="small"
+              >审核中</van-tag
+            >
+          </div>
+        </div>
+        <h1 class="activity-title">
+          {{ activityStore.config?.title || "年会互动" }}
+        </h1>
+      </div>
+
+      <!-- 状态提示卡片 -->
+      <div
+        class="status-card"
+        :class="statusCardClass"
+        @click="handleStatusAction"
+      >
+        <div class="status-content">
+          <van-icon :name="statusIcon" size="28" />
+          <div class="status-text">
+            <span class="status-title">{{ statusTitle }}</span>
+            <span class="status-desc">{{ statusDesc }}</span>
+          </div>
+        </div>
+        <van-button v-if="showStatusBtn" type="primary" size="small" round>{{
+          statusBtnText
+        }}</van-button>
+      </div>
+
+      <!-- 功能菜单 -->
+      <div class="menu-grid">
+        <!-- 签到 -->
+        <div class="menu-item" @click="handleCheckIn">
+          <div class="menu-icon" :class="{ disabled: userStore.isRegistered }">
+            <van-icon name="certificate" size="32" />
+          </div>
+          <span class="menu-text">签到</span>
+          <van-tag v-if="userStore.isRegistered" type="success" size="mini"
+            >已完成</van-tag
           >
-          <van-tag
-            v-else-if="userStore.isRegistered && userStore.auditStatus === 0"
-            type="warning"
-            size="small"
-            >审核中</van-tag
+        </div>
+
+        <!-- 摇一摇抽奖 -->
+        <div class="menu-item" @click="handleShake">
+          <div class="menu-icon shake" :class="{ disabled: !canJoinLottery }">
+            <van-icon name="gift-o" size="32" />
+          </div>
+          <span class="menu-text">摇一摇</span>
+          <van-tag v-if="!canJoinLottery" type="warning" size="mini"
+            >需签到</van-tag
           >
         </div>
-      </div>
-      <h1 class="activity-title">
-        {{ activityStore.config.title || "年会互动" }}
-      </h1>
-    </div>
 
-    <!-- 状态提示卡片 -->
-    <div
-      class="status-card"
-      :class="statusCardClass"
-      @click="handleStatusAction"
-    >
-      <div class="status-content">
-        <van-icon :name="statusIcon" size="28" />
-        <div class="status-text">
-          <span class="status-title">{{ statusTitle }}</span>
-          <span class="status-desc">{{ statusDesc }}</span>
+        <!-- 发弹幕 -->
+        <div class="menu-item" @click="handleDanmaku">
+          <div class="menu-icon danmaku">
+            <van-icon name="comment-o" size="32" />
+          </div>
+          <span class="menu-text">发弹幕</span>
+        </div>
+
+        <!-- 我的奖品 -->
+        <div class="menu-item" @click="handlePrize">
+          <div class="menu-icon prize">
+            <van-icon name="award-o" size="32" />
+          </div>
+          <span class="menu-text">我的奖品</span>
         </div>
       </div>
-      <van-button v-if="showStatusBtn" type="primary" size="small" round>{{
-        statusBtnText
-      }}</van-button>
-    </div>
 
-    <!-- 功能菜单 -->
-    <div class="menu-grid">
-      <!-- 签到 -->
-      <div class="menu-item" @click="handleCheckIn">
-        <div class="menu-icon" :class="{ disabled: userStore.isRegistered }">
-          <van-icon name="certificate" size="32" />
-        </div>
-        <span class="menu-text">签到</span>
-        <van-tag v-if="userStore.isRegistered" type="success" size="mini"
-          >已完成</van-tag
-        >
-      </div>
+      <!-- 活动公告 -->
+      <van-notice-bar
+        v-if="activityStore.config?.title"
+        left-icon="volume-o"
+        text="欢迎参加年会活动，签到后即可参与抽奖！"
+        class="notice-bar"
+      />
 
-      <!-- 摇一摇抽奖 -->
-      <div class="menu-item" @click="handleShake">
-        <div class="menu-icon shake" :class="{ disabled: !canJoinLottery }">
-          <van-icon name="gift-o" size="32" />
-        </div>
-        <span class="menu-text">摇一摇</span>
-        <van-tag v-if="!canJoinLottery" type="warning" size="mini"
-          >需签到</van-tag
-        >
-      </div>
-
-      <!-- 发弹幕 -->
-      <div class="menu-item" @click="handleDanmaku">
-        <div class="menu-icon danmaku">
-          <van-icon name="comment-o" size="32" />
-        </div>
-        <span class="menu-text">发弹幕</span>
-      </div>
-
-      <!-- 我的奖品 -->
-      <div class="menu-item" @click="handlePrize">
-        <div class="menu-icon prize">
-          <van-icon name="award-o" size="32" />
-        </div>
-        <span class="menu-text">我的奖品</span>
-      </div>
-    </div>
-
-    <!-- 活动公告 -->
-    <van-notice-bar
-      v-if="activityStore.config.title"
-      left-icon="volume-o"
-      text="欢迎参加年会活动，签到后即可参与抽奖！"
-      class="notice-bar"
-    />
-
-    <!-- 活动说明 -->
-    <div class="info-card">
-      <div class="info-title">参与流程</div>
-      <div class="info-steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <div class="step-text">微信授权登录</div>
-        </div>
-        <div class="step-arrow">→</div>
-        <div class="step">
-          <div class="step-num">2</div>
-          <div class="step-text">填写信息签到</div>
-        </div>
-        <div class="step-arrow">→</div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <div class="step-text">参与抽奖活动</div>
+      <!-- 活动说明 -->
+      <div class="info-card">
+        <div class="info-title">参与流程</div>
+        <div class="info-steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-text">微信授权登录</div>
+          </div>
+          <div class="step-arrow">→</div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-text">填写信息签到</div>
+          </div>
+          <div class="step-arrow">→</div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-text">参与抽奖活动</div>
+          </div>
         </div>
       </div>
     </div>
@@ -124,71 +175,213 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { showToast } from 'vant'
-import { useUserStore, useActivityStore } from '@/store'
+import { useActivityStore, useUserStore } from "@/store";
+import { formatDate } from "@/utils/format";
+import { showToast } from "vant";
+import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 
-const router = useRouter()
-const userStore = useUserStore()
-const activityStore = useActivityStore()
+const router = useRouter();
+const userStore = useUserStore();
+const activityStore = useActivityStore();
+
+const loading = ref(true);
+const defaultAvatar = "https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg";
 
 // 是否已签到
-const isCheckedIn = computed(() => userStore.isCheckedIn)
+const isCheckedIn = computed(() => userStore.isCheckedIn);
 
 // 审核状态
-const auditStatus = computed(() => userStore.auditStatus)
+const auditStatus = computed(() => userStore.auditStatus);
 
 // 是否可以参与抽奖（签到 + 审核通过）
-const canJoinLottery = computed(() => userStore.canJoinActivity)
+const canJoinLottery = computed(() => userStore.canJoinActivity);
+
+// 状态卡片样式
+const statusCardClass = computed(() => {
+  if (!userStore.isRegistered) return "not-registered";
+  if (auditStatus.value === 0) return "pending";
+  if (auditStatus.value === 2) return "rejected";
+  return "approved";
+});
+
+// 状态图标
+const statusIcon = computed(() => {
+  if (!userStore.isRegistered) return "warning-o";
+  if (auditStatus.value === 0) return "clock-o";
+  if (auditStatus.value === 2) return "close";
+  return "checked";
+});
+
+// 状态标题
+const statusTitle = computed(() => {
+  if (!userStore.isRegistered) return "未签到";
+  if (auditStatus.value === 0) return "签到审核中";
+  if (auditStatus.value === 2) return "签到未通过";
+  return "已签到";
+});
+
+// 状态描述
+const statusDesc = computed(() => {
+  if (!userStore.isRegistered) return "完成签到后可参与抽奖";
+  if (auditStatus.value === 0) return "请等待工作人员审核";
+  if (auditStatus.value === 2) return "请联系工作人员";
+  return "可以参与抽奖活动啦";
+});
+
+// 是否显示状态按钮
+const showStatusBtn = computed(() => {
+  return !userStore.isRegistered || auditStatus.value === 0;
+});
+
+// 状态按钮文字
+const statusBtnText = computed(() => {
+  if (!userStore.isRegistered) return "去签到";
+  if (auditStatus.value === 0) return "查看状态";
+  return "";
+});
+
+// 状态卡片点击处理
+const handleStatusAction = () => {
+  if (!userStore.isRegistered) {
+    router.push("/checkIn");
+  } else if (auditStatus.value === 0) {
+    router.push("/checkIn/status");
+  }
+};
 
 // 签到按钮处理
 const handleCheckIn = () => {
   if (isCheckedIn.value) {
     if (auditStatus.value === 0) {
-      router.push('/checkIn/status')
+      router.push("/checkIn/status");
     } else {
-      showToast('您已完成签到')
+      showToast("您已完成签到");
     }
-    return
+    return;
   }
-  router.push('/checkIn')
-}
+  router.push("/checkIn");
+};
 
 // 摇一摇按钮处理
 const handleShake = () => {
   if (!canJoinLottery.value) {
     if (!isCheckedIn.value) {
-      showToast('请先完成签到')
+      showToast("请先完成签到");
     } else if (auditStatus.value === 0) {
-      showToast('签到审核中，请稍后')
+      showToast("签到审核中，请稍后");
     } else if (auditStatus.value === 2) {
-      showToast('签到未通过，无法参与')
+      showToast("签到未通过，无法参与");
     }
-    return
+    return;
   }
-  router.push('/shake')
-}
+  router.push("/shake");
+};
 
 // 发弹幕（登录就能用）
 const handleDanmaku = () => {
-  router.push('/danmaku')
-}
+  router.push("/danmaku");
+};
 
 // 我的奖品
 const handlePrize = () => {
-  router.push('/prize')
-}
+  router.push("/prize");
+};
 
-onMounted(async () => {
-  await activityStore.init()
-  if (activityStore.activityId && userStore.isLoggedIn) {
-    await userStore.fetchUserInfo(activityStore.activityId)
+// 初始化
+const init = async () => {
+  loading.value = true;
+
+  // 从 localStorage 获取 activityId
+  const activityId = localStorage.getItem("activityId");
+  console.log("Home 页面从 localStorage 获取 activityId:", activityId);
+
+  if (!activityId) {
+    loading.value = false;
+    return;
   }
-})
+
+  // 初始化活动信息
+  const success = await activityStore.init(activityId);
+
+  // 如果活动正常且已登录，刷新用户信息
+  if (success && activityStore.activityStatus === 1 && userStore.isLoggedIn) {
+    await userStore.fetchUserInfo(activityStore.activityId);
+  }
+
+  loading.value = false;
+};
+
+const retry = () => {
+  init();
+};
+
+onMounted(() => {
+  init();
+});
 </script>
 
 <style lang="scss" scoped>
+.home-container {
+  min-height: 100vh;
+}
+
+.app-loading {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+}
+
+.app-loading p {
+  margin-top: 16px;
+  font-size: 14px;
+  color: #666;
+}
+
+.app-error {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  padding: 20px;
+}
+
+.error-content {
+  text-align: center;
+  background: #fff;
+  padding: 40px 30px;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  max-width: 320px;
+  width: 100%;
+}
+
+.error-content h2 {
+  margin: 20px 0 12px;
+  font-size: 20px;
+  color: #333;
+}
+
+.error-content p {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+.error-content .sub-text {
+  font-size: 12px;
+  color: #999;
+  margin-top: 8px;
+}
+
+.error-content .van-button {
+  margin-top: 24px;
+}
+
 .home-page {
   min-height: 100vh;
   background: #f5f5f5;

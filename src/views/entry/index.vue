@@ -6,26 +6,37 @@
 </template>
 
 <script setup>
+import { Loading as VanLoading } from "vant";
 import { onMounted } from "vue";
-import { useRouter, useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 const router = useRouter();
 const route = useRoute();
 
 onMounted(async () => {
   await router.isReady();
-  
-  // 从 URL 获取 activityId
-  const activityId = route.query.activityId || new URLSearchParams(window.location.search).get('activityId');
-  
+
+  // 从 URL 获取 activityId（多种方式兼容）
+  let activityId = route.query.activityId;
+
+  // 兜底：直接从 URL 解析
+  if (!activityId) {
+    const params = new URLSearchParams(window.location.search);
+    activityId = params.get("activityId");
+  }
+
+  console.log("Entry 页面获取到 activityId:", activityId);
+
   if (activityId) {
     // 存储到 localStorage
-    localStorage.setItem('activityId', activityId);
-    console.log('活动ID已更新:', activityId);
+    localStorage.setItem("activityId", activityId);
+    console.log("activityId 已存储到 localStorage");
+  } else {
+    console.warn("未获取到 activityId");
   }
-  
-  // 跳转到首页（不带参数）
-  router.replace('/');
+
+  // 跳转到首页
+  router.replace("/");
 });
 </script>
 
