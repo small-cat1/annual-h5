@@ -219,7 +219,8 @@ const btnLoading = ref(false);
 
 // 签到二维码URL（改为首页，用户登录后自己去签到）
 const checkInQrUrl = computed(
-  () => `${H5_BASE}/?activityId=${activityStore.activityId}&t=${Date.now()}`
+  () =>
+    `${H5_BASE}/entry?activityId=${activityStore.activityId}&t=${Date.now()}`
 );
 
 // 定时器

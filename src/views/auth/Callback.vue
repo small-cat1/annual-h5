@@ -1,12 +1,3 @@
-<template>
-  <div class="callback-page">
-    <div class="loading-box">
-      <van-loading type="spinner" color="#ff5722" size="48" />
-      <p class="loading-text">{{ statusText }}</p>
-    </div>
-  </div>
-</template>
-
 <script setup>
 import { useUserStore } from "@/store/modules/user";
 import { getCodeFromUrl } from "@/utils/wechat";
@@ -34,11 +25,14 @@ onMounted(async () => {
     await userStore.wechatLogin(code);
     statusText.value = "登录成功";
 
-    // 获取重定向地址
-    const redirect = route.query.redirect || "/";
-    const decodedRedirect = decodeURIComponent(redirect);
+    // 获取重定向路径（只是路径，不带 activityId）
+    let redirect = route.query.redirect || "/";
+    if (redirect.includes("%")) {
+      redirect = decodeURIComponent(redirect);
+    }
 
-    window.location.replace(decodedRedirect);
+    // 直接跳转，activityId 从 localStorage 获取
+    router.replace(redirect);
   } catch (error) {
     console.error("登录失败:", error);
     showToast("登录失败，请重试");
@@ -46,23 +40,3 @@ onMounted(async () => {
   }
 });
 </script>
-
-<style lang="scss" scoped>
-.callback-page {
-  min-height: 100vh;
-  background: #f5f5f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.loading-box {
-  text-align: center;
-}
-
-.loading-text {
-  margin-top: 16px;
-  font-size: 14px;
-  color: #666;
-}
-</style>

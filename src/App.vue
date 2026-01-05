@@ -55,7 +55,7 @@
 import { useActivityStore, useUserStore } from "@/store";
 import { formatDate } from "@/utils/format";
 import { onMounted, ref } from "vue";
-import { useRoute,useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 const route = useRoute();
 const router = useRouter();
@@ -66,13 +66,19 @@ const loading = ref(true);
 
 const init = async () => {
   loading.value = true;
-  // 从路由获取活动ID
-  const activityId = route.query.activityId;
+
+  // 统一从 localStorage 获取 activityId
+  const activityId = localStorage.getItem("activityId");
+
+  if (!activityId) {
+    loading.value = false;
+    return;
+  }
 
   // 初始化活动信息
   const success = await activityStore.init(activityId);
 
-  // 如果活动正常且已登录，刷新用户信息（包含签到状态）
+  // 如果活动正常且已登录，刷新用户信息
   if (success && activityStore.activityStatus === 1 && userStore.isLoggedIn) {
     await userStore.fetchUserInfo(activityStore.activityId);
   }
@@ -86,71 +92,13 @@ const retry = () => {
 
 onMounted(async () => {
   await router.isReady();
-  // 此时 route.query 一定有值了
-  const activityId = route.query.activityId || new URLSearchParams(window.location.search).get('activityId');
-  
-  if (!activityId) {
+
+  // 如果是入口页面，不处理（让入口页面自己处理）
+  if (route.path === "/entry") {
     loading.value = false;
     return;
   }
+
   init();
 });
 </script>
-
-<style>
-.app-loading {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #f5f5f5;
-}
-
-.app-loading p {
-  margin-top: 16px;
-  font-size: 14px;
-  color: #666;
-}
-
-.app-error {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f5f5f5;
-  padding: 20px;
-}
-
-.error-content {
-  text-align: center;
-  background: #fff;
-  padding: 40px 30px;
-  border-radius: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  max-width: 320px;
-  width: 100%;
-}
-
-.error-content h2 {
-  margin: 20px 0 12px;
-  font-size: 20px;
-  color: #333;
-}
-
-.error-content p {
-  font-size: 14px;
-  color: #666;
-  margin: 0;
-}
-
-.error-content .sub-text {
-  font-size: 12px;
-  color: #999;
-  margin-top: 8px;
-}
-
-.error-content .van-button {
-  margin-top: 24px;
-}
-</style>
