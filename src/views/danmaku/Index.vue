@@ -1,63 +1,110 @@
 <template>
   <div class="danmaku-page">
-    <van-nav-bar title="弹幕互动" left-arrow @click-left="$router.back()" />
+    <!-- 星空背景 -->
+    <div class="stars-bg">
+      <div v-for="n in 50" :key="n" class="star" :style="getStarStyle(n)" />
+    </div>
+
+    <!-- 顶部导航 -->
+    <van-nav-bar title="弹幕互动" left-arrow @click-left="$router.back()">
+      <template #right>
+        <span class="online-count">
+          <i class="dot" />
+          {{ onlineCount }} 在线
+        </span>
+      </template>
+    </van-nav-bar>
 
     <!-- 弹幕显示区域 -->
     <div class="danmaku-area" ref="danmakuAreaRef">
+      <!-- 飞行弹幕 -->
       <div
         v-for="item in displayDanmaku"
-        :key="item.id"
+        :key="item.uniqueId"
         class="danmaku-item"
+        :class="[`size-${item.size}`, { 'is-self': item.isSelf }]"
         :style="getDanmakuStyle(item)"
       >
-        <span class="danmaku-content" :style="{ color: item.color }">
-          {{ item.content }}
-        </span>
+        <div class="danmaku-bubble" :style="{ '--bubble-color': item.color }">
+          <img 
+            v-if="item.avatar" 
+            class="avatar" 
+            :src="item.avatar" 
+            alt="" 
+          />
+          <span class="text">{{ item.content }}</span>
+        </div>
       </div>
 
-      <div v-if="!displayDanmaku.length" class="empty-tips">
-        暂无弹幕，快来发送第一条吧~
+      <!-- 空状态 -->
+      <div v-if="!displayDanmaku.length && !loading" class="empty-state">
+        <div class="empty-icon">🎉</div>
+        <p>暂无弹幕</p>
+        <p class="sub">快来发送第一条弹幕吧~</p>
       </div>
+
+      <!-- 发送成功特效 -->
+      <Transition name="send-effect">
+        <div v-if="showSendEffect" class="send-effect">
+          <span>🚀</span>
+        </div>
+      </Transition>
     </div>
 
     <!-- 底部输入区域 -->
     <div class="input-area safe-area-bottom">
+      <!-- 快捷弹幕 -->
+      <div class="quick-danmaku">
+        <div 
+          v-for="(text, index) in quickTexts" 
+          :key="index"
+          class="quick-item"
+          @click="sendQuickDanmaku(text)"
+        >
+          {{ text }}
+        </div>
+      </div>
+
       <!-- 颜色选择 -->
       <div class="color-picker">
         <div
           v-for="color in colorOptions"
-          :key="color"
+          :key="color.value"
           class="color-item"
-          :class="{ active: selectedColor === color }"
-          :style="{ backgroundColor: color }"
-          @click="selectedColor = color"
-        />
+          :class="{ active: selectedColor === color.value }"
+          :style="{ background: color.gradient || color.value }"
+          @click="selectedColor = color.value"
+        >
+          <van-icon v-if="selectedColor === color.value" name="success" />
+        </div>
       </div>
 
       <!-- 输入框 -->
       <div class="input-box">
-        <van-field
-          v-model="content"
-          placeholder="发送弹幕..."
-          maxlength="50"
-          :disabled="!canSend"
+        <div class="input-wrapper">
+          <input
+            v-model="content"
+            type="text"
+            placeholder="发送弹幕，一起互动吧~"
+            maxlength="30"
+            :disabled="!canSend"
+            @keyup.enter="handleSend"
+          />
+          <span class="char-count">{{ content.length }}/30</span>
+        </div>
+        <button 
+          class="send-btn"
+          :class="{ active: content.trim() && canSend }"
+          :disabled="!canSend || !content.trim() || sending"
+          @click="handleSend"
         >
-          <template #button>
-            <van-button
-              size="small"
-              type="primary"
-              :disabled="!canSend || !content.trim()"
-              :loading="sending"
-              @click="handleSend"
-            >
-              发送
-            </van-button>
-          </template>
-        </van-field>
+          <van-icon v-if="sending" name="loading" class="loading" />
+          <template v-else>发送</template>
+        </button>
       </div>
 
       <p class="tips" v-if="activityStore.config?.danmakuAudit">
-        弹幕需要审核后才能显示
+        <van-icon name="info-o" /> 弹幕需要审核后才能显示
       </p>
     </div>
   </div>
@@ -73,35 +120,90 @@ const activityStore = useActivityStore();
 const wsStore = useWebSocketStore();
 
 const content = ref("");
-const selectedColor = ref("#FFFFFF");
+const selectedColor = ref("#FF6B6B");
 const sending = ref(false);
+const loading = ref(false);
 const danmakuList = ref([]);
 const displayDanmaku = ref([]);
 const danmakuAreaRef = ref(null);
+const showSendEffect = ref(false);
+const onlineCount = ref(128);
 
-// 颜色选项
+let uniqueId = 0;
+
+// 快捷弹幕
+const quickTexts = [
+  "666",
+  "🎉🎉🎉", 
+  "太棒了！",
+  "加油！",
+  "❤️",
+  "哈哈哈",
+];
+
+// 颜色选项（带渐变）
 const colorOptions = [
-  "#FFFFFF",
-  "#FF5722",
-  "#4CAF50",
-  "#2196F3",
-  "#FF9800",
-  "#E91E63",
-  "#9C27B0",
-  "#00BCD4",
+  { value: "#FFFFFF", gradient: "linear-gradient(135deg, #fff, #e0e0e0)" },
+  { value: "#FF6B6B", gradient: "linear-gradient(135deg, #FF6B6B, #ee5a5a)" },
+  { value: "#4ECDC4", gradient: "linear-gradient(135deg, #4ECDC4, #44b3ab)" },
+  { value: "#45B7D1", gradient: "linear-gradient(135deg, #45B7D1, #3ca8c1)" },
+  { value: "#96E6A1", gradient: "linear-gradient(135deg, #96E6A1, #7ed987)" },
+  { value: "#DDA0DD", gradient: "linear-gradient(135deg, #DDA0DD, #cc8fcc)" },
+  { value: "#F7DC6F", gradient: "linear-gradient(135deg, #F7DC6F, #f0d04e)" },
+  { value: "#BB8FCE", gradient: "linear-gradient(135deg, #BB8FCE, #a77dbf)" },
 ];
 
 const canSend = computed(() => {
   return activityStore.isOngoing && activityStore.config?.danmakuEnabled;
 });
 
-// 获取弹幕样式（随机位置和动画）
+// 生成星星样式
+const getStarStyle = (n) => {
+  const size = Math.random() * 3 + 1;
+  return {
+    width: `${size}px`,
+    height: `${size}px`,
+    left: `${Math.random() * 100}%`,
+    top: `${Math.random() * 100}%`,
+    animationDelay: `${Math.random() * 3}s`,
+    animationDuration: `${2 + Math.random() * 3}s`,
+  };
+};
+
+// 获取弹幕样式
 const getDanmakuStyle = (item) => {
   return {
-    top: `${item.top || Math.random() * 80}%`,
-    animationDuration: `${8 + Math.random() * 4}s`,
-    animationDelay: `${item.delay || 0}s`,
+    top: `${item.top}%`,
+    animationDuration: `${item.duration}s`,
+    animationDelay: `${item.delay}s`,
   };
+};
+
+// 添加弹幕到显示区域
+const addDanmaku = (item, isSelf = false) => {
+  const sizes = ['small', 'normal', 'large'];
+  const sizeIndex = isSelf ? 2 : Math.floor(Math.random() * 3);
+  
+  const danmaku = {
+    ...item,
+    uniqueId: `danmaku-${uniqueId++}`,
+    top: Math.random() * 75 + 5, // 5% - 80%
+    duration: 6 + Math.random() * 4, // 6-10秒
+    delay: 0,
+    size: sizes[sizeIndex],
+    isSelf,
+  };
+
+  displayDanmaku.value.push(danmaku);
+
+  // 动画结束后移除
+  const totalTime = (danmaku.duration + danmaku.delay) * 1000 + 500;
+  setTimeout(() => {
+    const index = displayDanmaku.value.findIndex((d) => d.uniqueId === danmaku.uniqueId);
+    if (index > -1) {
+      displayDanmaku.value.splice(index, 1);
+    }
+  }, totalTime);
 };
 
 // 发送弹幕
@@ -116,9 +218,21 @@ const handleSend = async () => {
       color: selectedColor.value,
     });
 
+    // 显示发送特效
+    showSendEffect.value = true;
+    setTimeout(() => {
+      showSendEffect.value = false;
+    }, 800);
+
     if (activityStore.config?.danmakuAudit) {
       showToast("弹幕已提交，等待审核");
     } else {
+      // 立即显示自己发的弹幕
+      addDanmaku({
+        id: Date.now(),
+        content: content.value.trim(),
+        color: selectedColor.value,
+      }, true);
       showSuccessToast("发送成功");
     }
 
@@ -130,198 +244,411 @@ const handleSend = async () => {
   }
 };
 
-// 添加弹幕到显示区域
-const addDanmaku = (item) => {
-  const danmaku = {
-    ...item,
-    id: item.id || Date.now() + Math.random(),
-    top: Math.random() * 80,
-    delay: 0,
-  };
-
-  displayDanmaku.value.push(danmaku);
-
-  // 动画结束后移除
-  setTimeout(() => {
-    const index = displayDanmaku.value.findIndex((d) => d.id === danmaku.id);
-    if (index > -1) {
-      displayDanmaku.value.splice(index, 1);
-    }
-  }, 12000);
+// 发送快捷弹幕
+const sendQuickDanmaku = (text) => {
+  content.value = text;
+  handleSend();
 };
 
 // 获取历史弹幕
 const fetchDanmaku = async () => {
   if (!activityStore.activityId) return;
 
+  loading.value = true;
   try {
-    const res = await getRecentDanmaku(activityStore.activityId, 50);
+    const res = await getRecentDanmaku(activityStore.activityId, 30);
     danmakuList.value = res.data || [];
 
     // 依次显示历史弹幕
     danmakuList.value.forEach((item, index) => {
       setTimeout(() => {
         addDanmaku(item);
-      }, index * 500);
+      }, index * 300);
     });
   } catch (error) {
     console.error("获取弹幕失败:", error);
+  } finally {
+    loading.value = false;
   }
 };
 
-// WebSocket 订阅取消函数
+// WebSocket 订阅
 let unsubscribe = null;
 
-// 处理新弹幕
 const handleNewDanmaku = (data) => {
   console.log("收到新弹幕:", data);
   addDanmaku(data);
 };
 
-// 订阅 WebSocket 弹幕消息
 const subscribeWebSocket = () => {
-  if (unsubscribe) {
-    unsubscribe();
-  }
+  if (unsubscribe) unsubscribe();
   unsubscribe = wsStore.subscribe("new_danmaku", handleNewDanmaku);
 };
 
-// 监听 WebSocket 连接状态
 watch(
   () => wsStore.isConnected,
   (connected) => {
-    if (connected) {
-      subscribeWebSocket();
-    }
+    if (connected) subscribeWebSocket();
   },
   { immediate: true }
 );
 
 onMounted(async () => {
-  // 修复：从 localStorage 获取 activityId 并初始化
   const activityId = localStorage.getItem("activityId");
   if (activityId && !activityStore.activityId) {
     await activityStore.init(activityId);
   }
-
-  // 获取历史弹幕
   fetchDanmaku();
-
-  // 如果 WebSocket 已连接，立即订阅
-  if (wsStore.isConnected) {
-    subscribeWebSocket();
-  }
+  if (wsStore.isConnected) subscribeWebSocket();
 });
 
 onUnmounted(() => {
-  // 只取消订阅，不关闭连接（连接是全局的）
-  if (unsubscribe) {
-    unsubscribe();
-  }
+  if (unsubscribe) unsubscribe();
 });
 </script>
 
 <style lang="scss" scoped>
 .danmaku-page {
   min-height: 100vh;
-  background: #1a1a2e;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
   display: flex;
   flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
 
-  :deep(.van-nav-bar) {
-    background: transparent;
-
-    .van-nav-bar__title,
-    .van-nav-bar__arrow {
-      color: #fff;
-    }
+// 星空背景
+.stars-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  
+  .star {
+    position: absolute;
+    background: #fff;
+    border-radius: 50%;
+    animation: twinkle ease-in-out infinite;
+    opacity: 0.6;
   }
 }
 
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+// 导航栏
+:deep(.van-nav-bar) {
+  background: transparent;
+  
+  .van-nav-bar__title,
+  .van-nav-bar__arrow {
+    color: #fff;
+  }
+}
+
+.online-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  
+  .dot {
+    width: 6px;
+    height: 6px;
+    background: #4CAF50;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+// 弹幕区域
 .danmaku-area {
   flex: 1;
   position: relative;
   overflow: hidden;
-  padding: 20px;
+}
 
-  .danmaku-item {
-    position: absolute;
-    left: 100%;
-    white-space: nowrap;
-    animation: danmakuMove 10s linear forwards;
-
-    .danmaku-content {
-      font-size: 16px;
-      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-      padding: 4px 12px;
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 20px;
-    }
+.danmaku-item {
+  position: absolute;
+  left: 100%;
+  animation: flyLeft linear forwards;
+  z-index: 1;
+  
+  &.is-self .danmaku-bubble {
+    box-shadow: 0 0 20px var(--bubble-color);
   }
+  
+  &.size-small {
+    .danmaku-bubble { transform: scale(0.85); }
+  }
+  
+  &.size-large {
+    .danmaku-bubble { transform: scale(1.1); }
+  }
+}
 
-  .empty-tips {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: rgba(255, 255, 255, 0.5);
+.danmaku-bubble {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  white-space: nowrap;
+  
+  .avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+  
+  .text {
+    font-size: 14px;
+    color: var(--bubble-color, #fff);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@keyframes flyLeft {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(calc(-100vw - 100%));
+    opacity: 0;
+  }
+}
+
+// 空状态
+.empty-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+  
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+    animation: bounce 2s infinite;
+  }
+  
+  p {
+    margin: 4px 0;
     font-size: 14px;
   }
-}
-
-@keyframes danmakuMove {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(calc(-100% - 100vw));
-  }
-}
-
-.input-area {
-  background: rgba(0, 0, 0, 0.5);
-  padding: 12px 16px;
-
-  .color-picker {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 12px;
-    justify-content: center;
-
-    .color-item {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      border: 2px solid transparent;
-      cursor: pointer;
-
-      &.active {
-        border-color: #fff;
-        box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-      }
-    }
-  }
-
-  .input-box {
-    :deep(.van-field) {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 24px;
-
-      .van-field__control {
-        color: #fff;
-
-        &::placeholder {
-          color: rgba(255, 255, 255, 0.5);
-        }
-      }
-    }
-  }
-
-  .tips {
-    text-align: center;
+  
+  .sub {
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.5);
-    margin-top: 8px;
+    opacity: 0.6;
   }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+// 发送特效
+.send-effect {
+  position: absolute;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 40px;
+  animation: rocketUp 0.8s ease-out forwards;
+}
+
+@keyframes rocketUp {
+  0% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-200px) scale(0.5);
+  }
+}
+
+.send-effect-enter-active,
+.send-effect-leave-active {
+  transition: all 0.3s;
+}
+
+.send-effect-enter-from,
+.send-effect-leave-to {
+  opacity: 0;
+}
+
+// 底部输入区
+.input-area {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(20px);
+  padding: 12px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+// 快捷弹幕
+.quick-danmaku {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .quick-item {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.8);
+    transition: all 0.2s;
+    
+    &:active {
+      transform: scale(0.95);
+      background: rgba(255, 255, 255, 0.2);
+    }
+  }
+}
+
+// 颜色选择
+.color-picker {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 12px;
+
+  .color-item {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    .van-icon {
+      color: rgba(0, 0, 0, 0.6);
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    &.active {
+      border-color: #fff;
+      transform: scale(1.15);
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.4);
+    }
+    
+    &:active {
+      transform: scale(0.9);
+    }
+  }
+}
+
+// 输入框
+.input-box {
+  display: flex;
+  gap: 10px;
+  
+  .input-wrapper {
+    flex: 1;
+    position: relative;
+    
+    input {
+      width: 100%;
+      height: 40px;
+      padding: 0 50px 0 16px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+      transition: all 0.2s;
+      
+      &::placeholder {
+        color: rgba(255, 255, 255, 0.4);
+      }
+      
+      &:focus {
+        border-color: rgba(255, 255, 255, 0.4);
+        background: rgba(255, 255, 255, 0.15);
+      }
+    }
+    
+    .char-count {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.4);
+    }
+  }
+  
+  .send-btn {
+    width: 64px;
+    height: 40px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 20px;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0.5;
+    transition: all 0.2s;
+    
+    &.active {
+      opacity: 1;
+    }
+    
+    &:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+    
+    .loading {
+      animation: spin 1s linear infinite;
+    }
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.tips {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 10px;
 }
 </style>
