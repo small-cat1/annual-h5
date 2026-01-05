@@ -21,7 +21,6 @@ const userStore = useUserStore();
 const statusText = ref("正在授权中...");
 
 onMounted(async () => {
-  // 获取微信返回的 code
   const code = getCodeFromUrl();
 
   if (!code) {
@@ -32,29 +31,12 @@ onMounted(async () => {
 
   try {
     statusText.value = "正在登录...";
-
-    // 调用后端接口换取用户信息
-    const result = await userStore.wechatLogin(code);
-
+    await userStore.wechatLogin(code);
     statusText.value = "登录成功";
 
-    // 获取重定向地址
+    // 直接跳转首页或目标页
     const redirect = route.query.redirect || "/";
-
-    // 根据用户状态跳转
-    const user = result.user;
-    if (user.isRegistered !== 1) {
-      if (user.status === 0 && user.realName) {
-        // 待审核
-        router.replace("/register/status");
-      } else {
-        // 未报名
-        router.replace("/register");
-      }
-    } else {
-      // 已报名，跳转目标页
-      router.replace(decodeURIComponent(redirect));
-    }
+    router.replace(decodeURIComponent(redirect));
   } catch (error) {
     console.error("登录失败:", error);
     showToast("登录失败，请重试");

@@ -1,27 +1,40 @@
 <template>
-  <div id="app">
-    <router-view v-slot="{ Component }">
-      <keep-alive :include="keepAliveList">
-        <component :is="Component" />
-      </keep-alive>
-    </router-view>
+  <router-view v-if="initialized" />
+  <div v-else class="app-loading">
+    <van-loading type="spinner" color="#ff5722" size="36" />
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useActivityStore, useUserStore } from "@/store";
+import { onMounted, ref } from "vue";
+import { useRoute } from "vue-router";
 
-const route = useRoute()
+const route = useRoute();
+const activityStore = useActivityStore();
+const userStore = useUserStore();
 
-const keepAliveList = computed(() => {
-  return route.meta?.keepAlive ? [route.name] : []
-})
+const initialized = ref(false);
+
+onMounted(async () => {
+  // 从路由或本地存储获取活动ID
+  const activityId = route.query.activityId;
+  await activityStore.init(activityId);
+
+  // 如果已登录，刷新用户信息
+  if (userStore.isLoggedIn) {
+    await userStore.fetchUserInfo();
+  }
+
+  initialized.value = true;
+});
 </script>
 
-<style lang="scss">
-#app {
+<style>
+.app-loading {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

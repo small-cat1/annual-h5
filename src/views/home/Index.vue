@@ -2,51 +2,89 @@
   <div class="home-page">
     <!-- 头部 -->
     <div class="home-header">
-      <div class="user-info" @click="goProfile">
+      <div class="user-info">
         <van-image
           round
-          width="44"
-          height="44"
+          width="48"
+          height="48"
           :src="userStore.avatar || defaultAvatar"
           fit="cover"
         />
-        <div class="user-name">
-          <span class="nickname">{{ userStore.userInfo?.realName || userStore.nickname }}</span>
-          <span class="department">{{ userStore.userInfo?.department }}</span>
+        <div class="user-meta">
+          <span class="nickname">{{
+            userStore.userInfo?.realName || userStore.nickname
+          }}</span>
+          <van-tag
+            v-if="userStore.isRegistered && userStore.auditStatus === 1"
+            type="success"
+            size="small"
+            >已签到</van-tag
+          >
+          <van-tag
+            v-else-if="userStore.isRegistered && userStore.auditStatus === 0"
+            type="warning"
+            size="small"
+            >审核中</van-tag
+          >
         </div>
       </div>
-      <div class="activity-title">
-        <h1>{{ activityStore.activityTitle }}</h1>
-        <van-tag v-if="activityStore.isOngoing" type="success">进行中</van-tag>
-        <van-tag v-else-if="activityStore.activityStatus === 0" type="warning">未开始</van-tag>
-        <van-tag v-else type="default">已结束</van-tag>
+      <h1 class="activity-title">
+        {{ activityStore.config.title || "年会互动" }}
+      </h1>
+    </div>
+
+    <!-- 状态提示卡片 -->
+    <div
+      class="status-card"
+      :class="statusCardClass"
+      @click="handleStatusAction"
+    >
+      <div class="status-content">
+        <van-icon :name="statusIcon" size="28" />
+        <div class="status-text">
+          <span class="status-title">{{ statusTitle }}</span>
+          <span class="status-desc">{{ statusDesc }}</span>
+        </div>
       </div>
+      <van-button v-if="showStatusBtn" type="primary" size="small" round>{{
+        statusBtnText
+      }}</van-button>
     </div>
 
     <!-- 功能菜单 -->
     <div class="menu-grid">
-      <div class="menu-item" @click="goCheckIn" v-if="activityStore.checkInEnabled">
-        <div class="menu-icon checkin">
+      <!-- 签到 -->
+      <div class="menu-item" @click="handleCheckIn">
+        <div class="menu-icon" :class="{ disabled: userStore.isRegistered }">
           <van-icon name="certificate" size="32" />
         </div>
         <span class="menu-text">签到</span>
+        <van-tag v-if="userStore.isRegistered" type="success" size="mini"
+          >已完成</van-tag
+        >
       </div>
-      
-      <div class="menu-item" @click="goDanmaku" v-if="activityStore.danmakuEnabled">
-        <div class="menu-icon danmaku">
-          <van-icon name="comment-o" size="32" />
-        </div>
-        <span class="menu-text">弹幕互动</span>
-      </div>
-      
-      <div class="menu-item" @click="goShake">
-        <div class="menu-icon shake">
+
+      <!-- 摇一摇抽奖 -->
+      <div class="menu-item" @click="handleShake">
+        <div class="menu-icon shake" :class="{ disabled: !canJoinLottery }">
           <van-icon name="gift-o" size="32" />
         </div>
         <span class="menu-text">摇一摇</span>
+        <van-tag v-if="!canJoinLottery" type="warning" size="mini"
+          >需签到</van-tag
+        >
       </div>
-      
-      <div class="menu-item" @click="goPrize">
+
+      <!-- 发弹幕 -->
+      <div class="menu-item" @click="handleDanmaku">
+        <div class="menu-icon danmaku">
+          <van-icon name="comment-o" size="32" />
+        </div>
+        <span class="menu-text">发弹幕</span>
+      </div>
+
+      <!-- 我的奖品 -->
+      <div class="menu-item" @click="handlePrize">
         <div class="menu-icon prize">
           <van-icon name="award-o" size="32" />
         </div>
@@ -54,148 +92,228 @@
       </div>
     </div>
 
-    <!-- 活动信息 -->
-    <van-cell-group inset class="activity-info">
-      <van-cell title="活动时间">
-        <template #value>
-          <span v-if="activityStore.startTime">
-            {{ formatDate(activityStore.startTime, 'MM-DD HH:mm') }}
-            至
-            {{ formatDate(activityStore.endTime, 'MM-DD HH:mm') }}
-          </span>
-          <span v-else>待定</span>
-        </template>
-      </van-cell>
-    </van-cell-group>
-
-    <!-- 公告栏 -->
+    <!-- 活动公告 -->
     <van-notice-bar
-      v-if="notice"
+      v-if="activityStore.config.title"
       left-icon="volume-o"
-      :text="notice"
+      text="欢迎参加年会活动，签到后即可参与抽奖！"
       class="notice-bar"
     />
 
-    <!-- 最新动态 -->
-    <div class="recent-section">
-      <div class="section-header">
-        <span class="title">最新动态</span>
-      </div>
-      <div class="recent-list">
-        <div v-for="item in recentList" :key="item.id" class="recent-item">
-          <van-image
-            round
-            width="32"
-            height="32"
-            :src="item.avatar || defaultAvatar"
-            fit="cover"
-          />
-          <div class="recent-content">
-            <span class="name">{{ item.name }}</span>
-            <span class="action">{{ item.action }}</span>
-          </div>
-          <span class="time">{{ formatRelativeTime(item.time) }}</span>
+    <!-- 活动说明 -->
+    <div class="info-card">
+      <div class="info-title">参与流程</div>
+      <div class="info-steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text">微信授权登录</div>
         </div>
-        <van-empty v-if="!recentList.length" description="暂无动态" />
+        <div class="step-arrow">→</div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text">填写信息签到</div>
+        </div>
+        <div class="step-arrow">→</div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text">参与抽奖活动</div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useUserStore, useActivityStore } from '@/store'
-import { formatDate, formatRelativeTime } from '@/utils/format'
+import { useActivityStore, useUserStore } from "@/store";
+import { showToast } from "vant";
+import { computed } from "vue";
+import { useRouter } from "vue-router";
 
-const router = useRouter()
-const userStore = useUserStore()
-const activityStore = useActivityStore()
+const router = useRouter();
+const userStore = useUserStore();
+const activityStore = useActivityStore();
 
-const defaultAvatar = 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
+const defaultAvatar = "https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg";
 
-const notice = ref('欢迎参加公司年会，祝大家新年快乐！')
-const recentList = ref([])
+// 是否可以参与抽奖（已签到 + 审核通过）
+const canJoinLottery = computed(() => {
+  return userStore.isRegistered && userStore.auditStatus === 1;
+});
 
-// 导航方法
-const goProfile = () => {
-  // 可以跳转到个人中心
-}
+// 状态卡片相关
+const statusCardClass = computed(() => {
+  if (!userStore.isRegistered) return "not-registered";
+  if (userStore.auditStatus === 0) return "pending";
+  if (userStore.auditStatus === 2) return "rejected";
+  return "approved";
+});
 
-const goCheckIn = () => {
-  router.push('/checkin')
-}
+const statusIcon = computed(() => {
+  if (!userStore.isRegistered) return "warning-o";
+  if (userStore.auditStatus === 0) return "clock-o";
+  if (userStore.auditStatus === 2) return "close";
+  return "passed";
+});
 
-const goDanmaku = () => {
-  router.push('/danmaku')
-}
+const statusTitle = computed(() => {
+  if (!userStore.isRegistered) return "您还未签到";
+  if (userStore.auditStatus === 0) return "签到审核中";
+  if (userStore.auditStatus === 2) return "签到被拒绝";
+  return "签到成功";
+});
 
-const goShake = () => {
-  router.push('/shake')
-}
+const statusDesc = computed(() => {
+  if (!userStore.isRegistered) return "签到后可参与抽奖活动";
+  if (userStore.auditStatus === 0) return "请等待管理员审核";
+  if (userStore.auditStatus === 2) return "请联系管理员处理";
+  return "可参与所有抽奖活动";
+});
 
-const goPrize = () => {
-  router.push('/prize')
-}
+const showStatusBtn = computed(() => {
+  return !userStore.isRegistered;
+});
 
-// 加载数据
-onMounted(async () => {
-  // 获取当前活动
-  await activityStore.fetchCurrentActivity()
-  
-  // 模拟最新动态数据
-  recentList.value = [
-    { id: 1, name: '张三', action: '完成了签到', time: new Date(), avatar: '' },
-    { id: 2, name: '李四', action: '发送了弹幕', time: new Date(Date.now() - 60000), avatar: '' },
-    { id: 3, name: '王五', action: '在摇一摇中获得三等奖', time: new Date(Date.now() - 120000), avatar: '' }
-  ]
-})
+const statusBtnText = computed(() => {
+  return "去签到";
+});
+
+// 点击状态卡片
+const handleStatusAction = () => {
+  if (!userStore.isRegistered) {
+    router.push("/register");
+  }
+};
+
+// 签到
+const handleCheckIn = () => {
+  if (userStore.isRegistered) {
+    showToast("您已完成签到");
+    return;
+  }
+  router.push("/register");
+};
+
+// 摇一摇
+const handleShake = () => {
+  if (!canJoinLottery.value) {
+    if (!userStore.isRegistered) {
+      showToast("请先完成签到");
+    } else if (userStore.auditStatus === 0) {
+      showToast("签到审核中，请稍后");
+    } else {
+      showToast("签到未通过，无法参与");
+    }
+    return;
+  }
+  router.push("/shake");
+};
+
+// 弹幕（登录就能用）
+const handleDanmaku = () => {
+  router.push("/danmaku");
+};
+
+// 我的奖品
+const handlePrize = () => {
+  router.push("/prize");
+};
 </script>
 
 <style lang="scss" scoped>
 .home-page {
   min-height: 100vh;
   background: #f5f5f5;
-  padding-bottom: 20px;
+  padding-bottom: 30px;
 }
 
 .home-header {
   background: linear-gradient(135deg, #ff5722 0%, #ff8a65 100%);
-  padding: 20px 16px 40px;
-  
+  padding: 24px 16px 50px;
+
   .user-info {
     display: flex;
     align-items: center;
     margin-bottom: 20px;
-    
-    .user-name {
+
+    .user-meta {
       margin-left: 12px;
-      
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
       .nickname {
-        display: block;
         font-size: 16px;
         font-weight: bold;
         color: #fff;
       }
-      
-      .department {
-        display: block;
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.8);
-        margin-top: 2px;
-      }
     }
   }
-  
+
   .activity-title {
+    font-size: 24px;
+    color: #fff;
+    font-weight: bold;
+  }
+}
+
+.status-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -30px 16px 16px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+  &.not-registered {
+    border-left: 4px solid #ff9800;
+    .van-icon {
+      color: #ff9800;
+    }
+  }
+
+  &.pending {
+    border-left: 4px solid #2196f3;
+    .van-icon {
+      color: #2196f3;
+    }
+  }
+
+  &.rejected {
+    border-left: 4px solid #f44336;
+    .van-icon {
+      color: #f44336;
+    }
+  }
+
+  &.approved {
+    border-left: 4px solid #4caf50;
+    .van-icon {
+      color: #4caf50;
+    }
+  }
+
+  .status-content {
     display: flex;
     align-items: center;
-    gap: 8px;
-    
-    h1 {
-      font-size: 22px;
-      color: #fff;
+    gap: 12px;
+  }
+
+  .status-text {
+    display: flex;
+    flex-direction: column;
+
+    .status-title {
+      font-size: 15px;
       font-weight: bold;
+      color: #333;
+    }
+
+    .status-desc {
+      font-size: 12px;
+      color: #999;
+      margin-top: 2px;
     }
   }
 }
@@ -204,17 +322,17 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
-  margin: -30px 16px 0;
-  padding: 20px;
+  margin: 0 16px 16px;
+  padding: 20px 12px;
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  
+
   .menu-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    
+    position: relative;
+
     .menu-icon {
       width: 56px;
       height: 56px;
@@ -223,91 +341,93 @@ onMounted(async () => {
       align-items: center;
       justify-content: center;
       margin-bottom: 8px;
-      
-      &.checkin {
-        background: linear-gradient(135deg, #4caf50, #8bc34a);
-        color: #fff;
-      }
-      
-      &.danmaku {
-        background: linear-gradient(135deg, #2196f3, #03a9f4);
-        color: #fff;
-      }
-      
+      background: linear-gradient(135deg, #4caf50, #8bc34a);
+      color: #fff;
+
       &.shake {
         background: linear-gradient(135deg, #ff5722, #ff9800);
-        color: #fff;
       }
-      
+
+      &.danmaku {
+        background: linear-gradient(135deg, #2196f3, #03a9f4);
+      }
+
       &.prize {
         background: linear-gradient(135deg, #9c27b0, #e91e63);
-        color: #fff;
+      }
+
+      &.disabled {
+        opacity: 0.5;
       }
     }
-    
+
     .menu-text {
       font-size: 12px;
       color: #333;
     }
-  }
-}
 
-.activity-info {
-  margin: 16px;
+    .van-tag {
+      position: absolute;
+      top: -4px;
+      right: 0;
+    }
+  }
 }
 
 .notice-bar {
-  margin: 0 16px;
+  margin: 0 16px 16px;
   border-radius: 8px;
 }
 
-.recent-section {
-  margin: 16px;
+.info-card {
+  margin: 0 16px;
+  padding: 16px;
   background: #fff;
   border-radius: 12px;
-  padding: 16px;
-  
-  .section-header {
+
+  .info-title {
+    font-size: 15px;
+    font-weight: bold;
+    color: #333;
     margin-bottom: 16px;
-    
-    .title {
-      font-size: 16px;
-      font-weight: bold;
-      color: #333;
-    }
   }
-  
-  .recent-list {
-    .recent-item {
+
+  .info-steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    .step {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      padding: 12px 0;
-      border-bottom: 1px solid #f0f0f0;
-      
-      &:last-child {
-        border-bottom: none;
+
+      .step-num {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: #ff5722;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: bold;
+        margin-bottom: 6px;
       }
-      
-      .recent-content {
-        flex: 1;
-        margin-left: 12px;
-        
-        .name {
-          font-size: 14px;
-          color: #333;
-          margin-right: 4px;
-        }
-        
-        .action {
-          font-size: 14px;
-          color: #666;
-        }
+
+      .step-text {
+        font-size: 11px;
+        color: #666;
+        white-space: nowrap;
       }
-      
-      .time {
-        font-size: 12px;
-        color: #999;
-      }
+    }
+
+    .step-arrow {
+      color: #ccc;
+      font-size: 16px;
+      margin-bottom: 20px;
     }
   }
 }
