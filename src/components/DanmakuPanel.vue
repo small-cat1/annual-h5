@@ -115,13 +115,13 @@ const stopPolling = () => {
 // 监听activityId变化
 watch(() => props.activityId, (newVal) => {
   if (newVal) {
-    // startPolling()
+    startPolling()
   }
 }, { immediate: true })
 
 onMounted(() => {
   if (props.activityId) {
-    // startPolling()
+    startPolling()
   }
 })
 
