@@ -137,14 +137,16 @@ class WebSocketClient {
   /**
    * 发送消息
    */
-  send(type, payload = {}) {
+  send(type, payload = "") {
     if (!this.isConnected || !this.ws) {
       console.warn("WebSocket 未连接");
       return false;
     }
 
     try {
-      const message = JSON.stringify({ type, payload });
+      const payloadStr =
+        typeof payload === "string" ? payload : JSON.stringify(payload);
+      const message = JSON.stringify({ type, payload: payloadStr });
       this.ws.send(message);
       return true;
     } catch (e) {
@@ -157,14 +159,14 @@ class WebSocketClient {
    * 加入房间
    */
   joinRoom(roomId) {
-    return this.send("join_room", { roomId });
+    return this.send("join_room", roomId);
   }
 
   /**
    * 离开房间
    */
   leaveRoom(roomId) {
-    return this.send("leave_room", { roomId });
+    return this.send("leave_room", roomId);
   }
 
   /**
