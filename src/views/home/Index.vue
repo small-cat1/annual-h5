@@ -124,99 +124,68 @@
 </template>
 
 <script setup>
-import { useActivityStore, useUserStore } from "@/store";
-import { showToast } from "vant";
-import { computed } from "vue";
-import { useRouter } from "vue-router";
+import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { showToast } from 'vant'
+import { useUserStore, useActivityStore } from '@/store'
 
-const router = useRouter();
-const userStore = useUserStore();
-const activityStore = useActivityStore();
+const router = useRouter()
+const userStore = useUserStore()
+const activityStore = useActivityStore()
 
-const defaultAvatar = "https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg";
+// 是否已签到
+const isCheckedIn = computed(() => userStore.isCheckedIn)
 
-// 是否可以参与抽奖（已签到 + 审核通过）
-const canJoinLottery = computed(() => {
-  return userStore.isRegistered && userStore.auditStatus === 1;
-});
+// 审核状态
+const auditStatus = computed(() => userStore.auditStatus)
 
-// 状态卡片相关
-const statusCardClass = computed(() => {
-  if (!userStore.isRegistered) return "not-registered";
-  if (userStore.auditStatus === 0) return "pending";
-  if (userStore.auditStatus === 2) return "rejected";
-  return "approved";
-});
+// 是否可以参与抽奖（签到 + 审核通过）
+const canJoinLottery = computed(() => userStore.canJoinActivity)
 
-const statusIcon = computed(() => {
-  if (!userStore.isRegistered) return "warning-o";
-  if (userStore.auditStatus === 0) return "clock-o";
-  if (userStore.auditStatus === 2) return "close";
-  return "passed";
-});
-
-const statusTitle = computed(() => {
-  if (!userStore.isRegistered) return "您还未签到";
-  if (userStore.auditStatus === 0) return "签到审核中";
-  if (userStore.auditStatus === 2) return "签到被拒绝";
-  return "签到成功";
-});
-
-const statusDesc = computed(() => {
-  if (!userStore.isRegistered) return "签到后可参与抽奖活动";
-  if (userStore.auditStatus === 0) return "请等待管理员审核";
-  if (userStore.auditStatus === 2) return "请联系管理员处理";
-  return "可参与所有抽奖活动";
-});
-
-const showStatusBtn = computed(() => {
-  return !userStore.isRegistered;
-});
-
-const statusBtnText = computed(() => {
-  return "去签到";
-});
-
-// 点击状态卡片
-const handleStatusAction = () => {
-  if (!userStore.isRegistered) {
-    router.push("/register");
-  }
-};
-
-// 签到
+// 签到按钮处理
 const handleCheckIn = () => {
-  if (userStore.isRegistered) {
-    showToast("您已完成签到");
-    return;
+  if (isCheckedIn.value) {
+    if (auditStatus.value === 0) {
+      router.push('/checkIn/status')
+    } else {
+      showToast('您已完成签到')
+    }
+    return
   }
-  router.push("/register");
-};
+  router.push('/checkIn')
+}
 
-// 摇一摇
+// 摇一摇按钮处理
 const handleShake = () => {
   if (!canJoinLottery.value) {
-    if (!userStore.isRegistered) {
-      showToast("请先完成签到");
-    } else if (userStore.auditStatus === 0) {
-      showToast("签到审核中，请稍后");
-    } else {
-      showToast("签到未通过，无法参与");
+    if (!isCheckedIn.value) {
+      showToast('请先完成签到')
+    } else if (auditStatus.value === 0) {
+      showToast('签到审核中，请稍后')
+    } else if (auditStatus.value === 2) {
+      showToast('签到未通过，无法参与')
     }
-    return;
+    return
   }
-  router.push("/shake");
-};
+  router.push('/shake')
+}
 
-// 弹幕（登录就能用）
+// 发弹幕（登录就能用）
 const handleDanmaku = () => {
-  router.push("/danmaku");
-};
+  router.push('/danmaku')
+}
 
 // 我的奖品
 const handlePrize = () => {
-  router.push("/prize");
-};
+  router.push('/prize')
+}
+
+onMounted(async () => {
+  await activityStore.init()
+  if (activityStore.activityId && userStore.isLoggedIn) {
+    await userStore.fetchUserInfo(activityStore.activityId)
+  }
+})
 </script>
 
 <style lang="scss" scoped>

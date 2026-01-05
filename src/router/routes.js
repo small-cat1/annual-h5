@@ -14,77 +14,69 @@ export const routes = [
     meta: { title: '授权中', requiresAuth: false }
   },
 
-  // ========== 报名相关 ==========
-  {
-    path: '/register',
-    name: 'Register',
-    component: () => import('@/views/register/Index.vue'),
-    meta: { title: '报名', requiresAuth: true }
-  },
-  {
-    path: '/register/status',
-    name: 'RegisterStatus',
-    component: () => import('@/views/register/Status.vue'),
-    meta: { title: '审核状态', requiresAuth: true }
-  },
-
   // ========== 主要功能 ==========
   {
     path: '/',
     name: 'Home',
     component: () => import('@/views/home/Index.vue'),
-    meta: { title: '首页', requiresAuth: true, requiresRegistered: true }
+    meta: { title: '首页', requiresAuth: true }
   },
   {
-    path: '/checkin',
+    path: '/checkIn',
     name: 'CheckIn',
-    component: () => import('@/views/checkin/Index.vue'),
-    meta: { title: '签到', requiresAuth: true, requiresRegistered: true }
+    component: () => import('@/views/checkIn/Index.vue'),
+    meta: { title: '签到', requiresAuth: true }
+  },
+  {
+    path: '/checkIn/status',
+    name: 'CheckInStatus',
+    component: () => import('@/views/checkIn/Status.vue'),
+    meta: { title: '审核状态', requiresAuth: true }
   },
   {
     path: '/danmaku',
     name: 'Danmaku',
     component: () => import('@/views/danmaku/Index.vue'),
-    meta: { title: '弹幕互动', requiresAuth: true, requiresRegistered: true }
+    meta: { title: '弹幕互动', requiresAuth: true }
   },
   {
     path: '/shake',
     name: 'Shake',
     component: () => import('@/views/shake/Index.vue'),
-    meta: { title: '摇一摇', requiresAuth: true, requiresRegistered: true }
+    meta: { title: '摇一摇', requiresAuth: true }
   },
   {
     path: '/shake/join',
     name: 'ShakeJoin',
     component: () => import('@/views/shake/Join.vue'),
-    meta: { title: '加入游戏', requiresAuth: true, requiresRegistered: true }
+    meta: { title: '加入游戏', requiresAuth: true }
   },
   {
     path: '/shake/playing',
     name: 'ShakePlaying',
     component: () => import('@/views/shake/Playing.vue'),
-    meta: { title: '摇一摇', requiresAuth: true, requiresRegistered: true }
+    meta: { title: '摇一摇', requiresAuth: true }
   },
   {
     path: '/shake/result',
     name: 'ShakeResult',
     component: () => import('@/views/shake/Result.vue'),
-    meta: { title: '游戏结果', requiresAuth: true, requiresRegistered: true }
+    meta: { title: '游戏结果', requiresAuth: true }
   },
   {
     path: '/prize',
     name: 'PrizeList',
     component: () => import('@/views/prize/List.vue'),
-    meta: { title: '我的奖品', requiresAuth: true, requiresRegistered: true }
+    meta: { title: '我的奖品', requiresAuth: true }
   },
   {
     path: '/prize/:id',
     name: 'PrizeDetail',
     component: () => import('@/views/prize/Detail.vue'),
-    meta: { title: '奖品详情', requiresAuth: true, requiresRegistered: true }
+    meta: { title: '奖品详情', requiresAuth: true }
   },
 
-  // ========== 控制台(主持人使用，无需登录) ==========
+  // ========== 控制台 ==========
   {
     path: '/screen',
     name: 'Screen',
