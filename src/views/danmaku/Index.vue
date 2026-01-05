@@ -10,7 +10,7 @@
       <template #right>
         <span class="online-count">
           <i class="dot" />
-          {{ onlineCount }} 在线
+           在线
         </span>
       </template>
     </van-nav-bar>
@@ -127,10 +127,12 @@ const danmakuList = ref([]);
 const displayDanmaku = ref([]);
 const danmakuAreaRef = ref(null);
 const showSendEffect = ref(false);
-const onlineCount = ref(128);
 
 let uniqueId = 0;
 
+
+let loopTimer = null
+let loopIndex = 0
 // 快捷弹幕
 const quickTexts = [
   "666",
@@ -263,8 +265,15 @@ const fetchDanmaku = async () => {
     danmakuList.value.forEach((item, index) => {
       setTimeout(() => {
         addDanmaku(item);
-      }, index * 300);
+      }, index * 500);
     });
+
+       // 历史弹幕显示完后开始循环
+    const startDelay = danmakuList.value.length * 500 + 1000
+    setTimeout(() => {
+      startLoop()
+    }, startDelay)
+
   } catch (error) {
     console.error("获取弹幕失败:", error);
   } finally {
@@ -285,6 +294,40 @@ const subscribeWebSocket = () => {
   unsubscribe = wsStore.subscribe("new_danmaku", handleNewDanmaku);
 };
 
+
+// 开始循环播放
+const startLoop = () => {
+  stopLoop()
+  if (danmakuList.value.length === 0) return
+  
+  const addNext = () => {
+    if (danmakuList.value.length === 0) return
+    
+    // 随机添加 1-2 条弹幕
+    const count = Math.min(
+      Math.floor(Math.random() * 2) + 1,
+      danmakuList.value.length
+    )
+    
+    for (let i = 0; i < count; i++) {
+      const item = danmakuList.value[loopIndex % danmakuList.value.length]
+      addDanmaku(item)
+      loopIndex++
+    }
+  }
+  
+  // 定时添加弹幕
+  loopTimer = setInterval(addNext, 2000)
+}
+
+// 停止循环
+const stopLoop = () => {
+  if (loopTimer) {
+    clearInterval(loopTimer)
+    loopTimer = null
+  }
+}
+
 watch(
   () => wsStore.isConnected,
   (connected) => {
@@ -304,6 +347,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (unsubscribe) unsubscribe();
+    stopLoop()  
 });
 </script>
 
