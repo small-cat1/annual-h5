@@ -8,58 +8,59 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { showToast } from 'vant'
-import { useUserStore } from '@/store'
-import { getCodeFromUrl } from '@/utils/wechat'
+import { useUserStore } from "@/store/modules/user";
+import { getCodeFromUrl } from "@/utils/wechat";
+import { showToast } from "vant";
+import { onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
-const router = useRouter()
-const route = useRoute()
-const userStore = useUserStore()
+const router = useRouter();
+const route = useRoute();
+const userStore = useUserStore();
 
-const statusText = ref('正在授权中...')
+const statusText = ref("正在授权中...");
 
 onMounted(async () => {
   // 获取微信返回的 code
-  const code = getCodeFromUrl()
-  
+  const code = getCodeFromUrl();
+
   if (!code) {
-    showToast('授权失败，请重试')
-    router.replace('/auth/login')
-    return
+    showToast("授权失败，请重试");
+    router.replace("/auth/login");
+    return;
   }
 
   try {
-    statusText.value = '正在登录...'
-    
+    statusText.value = "正在登录...";
+
     // 调用后端接口换取用户信息
-    const result = await userStore.wechatLogin(code)
-    
-    statusText.value = '登录成功'
-    
+    const result = await userStore.wechatLogin(code);
+
+    statusText.value = "登录成功";
+
     // 获取重定向地址
-    const redirect = route.query.redirect || '/'
-    
+    const redirect = route.query.redirect || "/";
+
     // 根据用户状态跳转
-    if (!userStore.isRegistered) {
-      if (userStore.auditStatus === 0 && result.user?.realName) {
+    const user = result.user;
+    if (user.isRegistered !== 1) {
+      if (user.status === 0 && user.realName) {
         // 待审核
-        router.replace('/register/status')
+        router.replace("/register/status");
       } else {
         // 未报名
-        router.replace('/register')
+        router.replace("/register");
       }
     } else {
       // 已报名，跳转目标页
-      router.replace(decodeURIComponent(redirect))
+      router.replace(decodeURIComponent(redirect));
     }
   } catch (error) {
-    console.error('登录失败:', error)
-    showToast('登录失败，请重试')
-    router.replace('/auth/login')
+    console.error("登录失败:", error);
+    showToast("登录失败，请重试");
+    router.replace("/auth/login");
   }
-})
+});
 </script>
 
 <style lang="scss" scoped>

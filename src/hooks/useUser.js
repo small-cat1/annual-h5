@@ -1,6 +1,6 @@
 // 用户 Hook
 import { computed, ref } from 'vue'
-import { useUserStore } from '@/store'
+import { useUserStore } from '@/store/modules/user'
 
 export function useUser() {
   const userStore = useUserStore()

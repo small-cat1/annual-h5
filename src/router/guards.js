@@ -1,5 +1,5 @@
 // 路由守卫
-import { useUserStore } from '@/store'
+import { useUserStore } from '@/store/modules/user'
 import { isWechat, redirectToAuth } from '@/utils/wechat'
 
 /**
