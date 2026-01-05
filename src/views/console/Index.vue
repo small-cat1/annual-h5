@@ -71,33 +71,29 @@
             <!-- 签到统计 -->
             <div class="stats-grid">
               <div class="stat-item">
-                <div class="stat-value gold">{{ checkInData.checkedIn }}</div>
-                <div class="stat-label">已签到</div>
+                <div class="stat-value gold">{{ checkInData.total }}</div>
+                <div class="stat-label">总签到</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value">{{ checkInData.total }}</div>
-                <div class="stat-label">总人数</div>
+                <div class="stat-value orange">{{ checkInData.pending }}</div>
+                <div class="stat-label">待审核</div>
               </div>
               <div class="stat-item">
-                <div class="stat-value red">{{ checkInData.rate }}%</div>
-                <div class="stat-label">签到率</div>
+                <div class="stat-value green">{{ checkInData.approved }}</div>
+                <div class="stat-label">已通过</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value red">{{ checkInData.rejected }}</div>
+                <div class="stat-label">已拒绝</div>
               </div>
             </div>
 
-            <!-- 签到进度条 -->
-            <div class="progress-bar">
-              <div
-                class="progress-fill"
-                :style="{ width: checkInData.rate + '%' }"
-              ></div>
-            </div>
-
-            <!-- 签到二维码区域 -->
+            <!-- 二维码区域 -->
             <div class="qrcode-section" v-if="checkInData.isOpen">
               <div class="qrcode-wrapper">
                 <qrcode-vue :value="checkInQrUrl" :size="180" level="M" />
               </div>
-              <p class="qrcode-tip">员工扫码签到</p>
+              <p class="qrcode-tip">扫码进入活动</p>
             </div>
 
             <!-- 签到控制按钮 -->
@@ -120,6 +116,36 @@
                 <span class="btn-icon">⏹️</span>
                 关闭签到
               </button>
+            </div>
+
+            <!-- 最新签到列表 -->
+            <!-- 最新签到列表 -->
+            <div class="checkin-list" v-if="checkInData.isOpen">
+              <div class="list-header">
+                <span>最新签到</span>
+              </div>
+              <div class="list-content">
+                <div
+                  v-for="item in checkInData.list"
+                  :key="item.id"
+                  class="checkin-item"
+                >
+                  <img
+                    :src="item.avatar || defaultAvatar"
+                    class="user-avatar"
+                  />
+                  <div class="user-info">
+                    <span class="user-name">{{
+                      item.realName || item.nickname
+                    }}</span>
+                    <span class="user-dept">{{ item.department || "-" }}</span>
+                  </div>
+                  <span class="checkin-time">{{ item.checkInTime }}</span>
+                </div>
+                <div v-if="!checkInData.list.length" class="empty-tip">
+                  暂无签到记录
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -154,7 +180,11 @@
 </template>
 
 <script setup>
-import { closeCheckIn, getCheckInStats, openCheckIn } from "@/api/console/checkin";
+import {
+  closeCheckIn,
+  getCheckInStats,
+  openCheckIn,
+} from "@/api/console/checkin";
 import DanmakuPanel from "@/components/DanmakuPanel.vue";
 import { useActivityStore } from "@/store/modules/activity";
 import QrcodeVue from "qrcode.vue";
@@ -170,20 +200,26 @@ const H5_BASE = import.meta.env.VITE_APP_H5_URL || window.location.origin;
 // 当前时间
 const currentTime = ref("");
 
-// 签到数据（状态+统计合一）
+// 签到列表
+const checkInList = ref([]);
+const defaultAvatar = "https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg";
+
+// 签到统计数据
 const checkInData = reactive({
   isOpen: false,
-  checkedIn: 0,
   total: 0,
-  rate: 0,
+  pending: 0,
+  approved: 0,
+  rejected: 0,
+  list: [],
 });
 
 // 按钮加载状态
 const btnLoading = ref(false);
 
-// 签到二维码URL
+// 签到二维码URL（改为首页，用户登录后自己去签到）
 const checkInQrUrl = computed(
-  () => `${H5_BASE}/checkin?activityId=${activityStore.activityId}`
+  () => `${H5_BASE}/?activityId=${activityStore.activityId}`
 );
 
 // 定时器
@@ -196,17 +232,19 @@ const updateTime = () => {
   currentTime.value = now.toLocaleTimeString("zh-CN", { hour12: false });
 };
 
-// 获取签到统计（包含状态）
-const fetchCheckInStats = async () => {
+// 获取签到统计
+const fetchCheckInData = async () => {
   if (!activityStore.activityId) return;
 
   try {
     const res = await getCheckInStats(activityStore.activityId);
     if (res.code === 0 && res.data) {
       checkInData.isOpen = res.data.isOpen || false;
-      checkInData.checkedIn = res.data.checkedIn || 0;
       checkInData.total = res.data.total || 0;
-      checkInData.rate = res.data.rate || 0;
+      checkInData.pending = res.data.pending || 0;
+      checkInData.approved = res.data.approved || 0;
+      checkInData.rejected = res.data.rejected || 0;
+      checkInData.list = res.data.list || [];
     }
   } catch (e) {
     console.error("获取签到统计失败", e);
@@ -219,8 +257,7 @@ const handleOpenCheckIn = async () => {
   try {
     const res = await openCheckIn(activityStore.activityId);
     if (res.code === 0) {
-      checkInData.isOpen = true;
-            startPolling(); // 开始轮询
+      startPolling();
     }
   } catch (e) {
     console.error("开启签到失败", e);
@@ -235,8 +272,7 @@ const handleCloseCheckIn = async () => {
   try {
     const res = await closeCheckIn(activityStore.activityId);
     if (res.code === 0) {
-      checkInData.isOpen = false;
-            stopPolling(); // 停止轮询
+      stopPolling();
     }
   } catch (e) {
     console.error("关闭签到失败", e);
@@ -254,14 +290,17 @@ const goToGame = () => {
 const retryLoad = async () => {
   await activityStore.init(route.query.activityId);
   if (activityStore.isReady) {
-    startPolling();
+    await fetchCheckInData();
+    if (checkInData.isOpen) {
+      startPolling();
+    }
   }
 };
 
 // 开始轮询
 const startPolling = () => {
   stopPolling();
-  pollTimer = setInterval(fetchCheckInStats, 5000);
+  pollTimer = setInterval(fetchCheckInData, 5000);
 };
 
 // 停止轮询
@@ -274,18 +313,13 @@ const stopPolling = () => {
 
 // 初始化
 onMounted(async () => {
-  // 时间更新
   updateTime();
   timeTimer = setInterval(updateTime, 1000);
 
-  // 初始化store（获取活动ID + 加载配置）
   const success = await activityStore.init(route.query.activityId);
 
-  // 配置加载成功才开始轮询
   if (success) {
-   // 首次请求一次签到数据
-    await fetchCheckInStats();
-    // 如果签到已开启，才开始轮询
+    await fetchCheckInData();
     if (checkInData.isOpen) {
       startPolling();
     }
@@ -423,6 +457,7 @@ $text-gold: #ffd700;
     top: 20px;
     left: 5%;
   }
+
   &.lantern-right {
     top: 20px;
     right: 5%;
@@ -452,12 +487,14 @@ $text-gold: #ffd700;
     left: 20%;
     background: $primary-gold;
   }
+
   &.firework-2 {
     top: 25%;
     right: 25%;
     background: $primary-red;
     animation-delay: 0.7s;
   }
+
   &.firework-3 {
     top: 10%;
     right: 15%;
@@ -657,22 +694,22 @@ $text-gold: #ffd700;
   overflow-y: auto;
 }
 
-// 签到统计
+// 签到统计 - 4列布局
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
   margin-bottom: 24px;
 
   .stat-item {
     text-align: center;
-    padding: 20px 12px;
+    padding: 16px 8px;
     background: rgba(0, 0, 0, 0.3);
     border-radius: 12px;
     border: 1px solid rgba(255, 215, 0, 0.1);
 
     .stat-value {
-      font-size: 36px;
+      font-size: 28px;
       font-weight: 700;
       line-height: 1;
       margin-bottom: 8px;
@@ -680,33 +717,28 @@ $text-gold: #ffd700;
       &.gold {
         color: $primary-gold;
       }
+
+      &.orange {
+        color: #ffa726;
+      }
+
+      &.green {
+        color: #66bb6a;
+      }
+
       &.red {
-        color: #ff6b6b;
+        color: #ef5350;
       }
     }
 
     .stat-label {
-      font-size: 13px;
+      font-size: 12px;
       opacity: 0.7;
     }
   }
 }
 
-.progress-bar {
-  height: 10px;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 5px;
-  margin-bottom: 24px;
-  overflow: hidden;
-
-  .progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, $primary-red, $primary-gold);
-    border-radius: 5px;
-    transition: width 0.5s ease;
-  }
-}
-
+// 二维码区域
 .qrcode-section {
   display: flex;
   flex-direction: column;
@@ -819,15 +851,112 @@ $text-gold: #ffd700;
   .console-header {
     flex-wrap: wrap;
     gap: 12px;
+
     .header-center {
       order: -1;
       width: 100%;
       justify-content: center;
     }
+
     .header-left,
     .header-right {
       flex: none;
     }
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+// 签到列表
+.checkin-list {
+  margin-top: 24px;
+  border-top: 1px solid rgba(255, 215, 0, 0.1);
+  padding-top: 20px;
+
+  .list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    font-size: 14px;
+    color: $text-gold;
+
+    .list-count {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+  }
+
+  .list-content {
+    max-height: 240px;
+    overflow-y: auto;
+
+    &::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 215, 0, 0.3);
+      border-radius: 2px;
+    }
+  }
+
+  .checkin-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    margin-bottom: 8px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .user-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid rgba(255, 215, 0, 0.3);
+    }
+
+    .user-info {
+      flex: 1;
+      margin-left: 12px;
+      overflow: hidden;
+
+      .user-name {
+        display: block;
+        font-size: 14px;
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .user-dept {
+        display: block;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.5);
+        margin-top: 2px;
+      }
+    }
+
+    .checkin-time {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+      font-family: "Courier New", monospace;
+    }
+  }
+
+  .empty-tip {
+    text-align: center;
+    padding: 20px;
+    font-size: 13px;
+    opacity: 0.5;
   }
 }
 </style>

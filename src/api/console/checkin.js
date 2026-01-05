@@ -4,6 +4,8 @@ import request from '@/utils/request'
  * 签到管理 API
  */
 
+
+
 /**
  * 获取签到统计（包含状态）
  * 返回：isOpen, checkedIn, total, rate
@@ -35,16 +37,5 @@ export function closeCheckIn(activityId) {
     url: '/console/checkin/close',
     method: 'post',
     data: { activityId }
-  })
-}
-
-/**
- * 获取签到列表
- */
-export function getCheckInList(activityId, params = {}) {
-  return request({
-    url: '/console/checkin/list',
-    method: 'get',
-    params: { activityId, ...params }
   })
 }
