@@ -65,12 +65,12 @@
 
 <script setup>
 import { getRecentDanmaku, sendDanmaku } from "@/api/danmaku";
-import { useActivityStore } from "@/store";
-import websocket from "@/utils/websocket";
+import { useActivityStore, useWebSocketStore } from "@/store";
 import { showSuccessToast, showToast } from "vant";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
 const activityStore = useActivityStore();
+const wsStore = useWebSocketStore();
 
 const content = ref("");
 const selectedColor = ref("#FFFFFF");
@@ -169,15 +169,33 @@ const fetchDanmaku = async () => {
   }
 };
 
-// WebSocket 监听新弹幕
-const setupWebSocket = () => {
-  const wsUrl = import.meta.env.VITE_APP_WS_URL + "/h5";
-  websocket.connect(wsUrl);
+// WebSocket 订阅取消函数
+let unsubscribe = null;
 
-  websocket.on("new_danmaku", (data) => {
-    addDanmaku(data);
-  });
+// 处理新弹幕
+const handleNewDanmaku = (data) => {
+  console.log("收到新弹幕:", data);
+  addDanmaku(data);
 };
+
+// 订阅 WebSocket 弹幕消息
+const subscribeWebSocket = () => {
+  if (unsubscribe) {
+    unsubscribe();
+  }
+  unsubscribe = wsStore.subscribe("new_danmaku", handleNewDanmaku);
+};
+
+// 监听 WebSocket 连接状态
+watch(
+  () => wsStore.isConnected,
+  (connected) => {
+    if (connected) {
+      subscribeWebSocket();
+    }
+  },
+  { immediate: true }
+);
 
 onMounted(async () => {
   // 修复：从 localStorage 获取 activityId 并初始化
@@ -186,12 +204,20 @@ onMounted(async () => {
     await activityStore.init(activityId);
   }
 
+  // 获取历史弹幕
   fetchDanmaku();
-  setupWebSocket();
+
+  // 如果 WebSocket 已连接，立即订阅
+  if (wsStore.isConnected) {
+    subscribeWebSocket();
+  }
 });
 
 onUnmounted(() => {
-  websocket.close();
+  // 只取消订阅，不关闭连接（连接是全局的）
+  if (unsubscribe) {
+    unsubscribe();
+  }
 });
 </script>
 
