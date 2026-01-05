@@ -65,13 +65,13 @@
               userStore.userInfo?.realName || userStore.nickname
             }}</span>
             <van-tag
-              v-if="userStore.isRegistered && userStore.auditStatus === 1"
+              v-if="isCheckedIn && auditStatus === 1"
               type="success"
               size="small"
               >已签到</van-tag
             >
             <van-tag
-              v-else-if="userStore.isRegistered && userStore.auditStatus === 0"
+              v-else-if="isCheckedIn && auditStatus === 0"
               type="warning"
               size="small"
               >审核中</van-tag
@@ -105,11 +105,11 @@
       <div class="menu-grid">
         <!-- 签到 -->
         <div class="menu-item" @click="handleCheckIn">
-          <div class="menu-icon" :class="{ disabled: userStore.isRegistered }">
+          <div class="menu-icon" :class="{ disabled: isCheckedIn }">
             <van-icon name="certificate" size="32" />
           </div>
           <span class="menu-text">签到</span>
-          <van-tag v-if="userStore.isRegistered" type="success" size="mini"
+          <van-tag v-if="isCheckedIn" type="success" size="mini"
             >已完成</van-tag
           >
         </div>
@@ -188,10 +188,10 @@ const activityStore = useActivityStore();
 const loading = ref(true);
 const defaultAvatar = "https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg";
 
-// 是否已签到
+// 是否已签到（使用 store 中的 getter）
 const isCheckedIn = computed(() => userStore.isCheckedIn);
 
-// 审核状态
+// 审核状态（使用 store 中的 getter）
 const auditStatus = computed(() => userStore.auditStatus);
 
 // 是否可以参与抽奖（签到 + 审核通过）
@@ -199,7 +199,7 @@ const canJoinLottery = computed(() => userStore.canJoinActivity);
 
 // 状态卡片样式
 const statusCardClass = computed(() => {
-  if (!userStore.isRegistered) return "not-registered";
+  if (!isCheckedIn.value) return "not-registered";
   if (auditStatus.value === 0) return "pending";
   if (auditStatus.value === 2) return "rejected";
   return "approved";
@@ -207,7 +207,7 @@ const statusCardClass = computed(() => {
 
 // 状态图标
 const statusIcon = computed(() => {
-  if (!userStore.isRegistered) return "warning-o";
+  if (!isCheckedIn.value) return "warning-o";
   if (auditStatus.value === 0) return "clock-o";
   if (auditStatus.value === 2) return "close";
   return "checked";
@@ -215,7 +215,7 @@ const statusIcon = computed(() => {
 
 // 状态标题
 const statusTitle = computed(() => {
-  if (!userStore.isRegistered) return "未签到";
+  if (!isCheckedIn.value) return "未签到";
   if (auditStatus.value === 0) return "签到审核中";
   if (auditStatus.value === 2) return "签到未通过";
   return "已签到";
@@ -223,7 +223,7 @@ const statusTitle = computed(() => {
 
 // 状态描述
 const statusDesc = computed(() => {
-  if (!userStore.isRegistered) return "完成签到后可参与抽奖";
+  if (!isCheckedIn.value) return "完成签到后可参与抽奖";
   if (auditStatus.value === 0) return "请等待工作人员审核";
   if (auditStatus.value === 2) return "请联系工作人员";
   return "可以参与抽奖活动啦";
@@ -231,19 +231,19 @@ const statusDesc = computed(() => {
 
 // 是否显示状态按钮
 const showStatusBtn = computed(() => {
-  return !userStore.isRegistered || auditStatus.value === 0;
+  return !isCheckedIn.value || auditStatus.value === 0;
 });
 
 // 状态按钮文字
 const statusBtnText = computed(() => {
-  if (!userStore.isRegistered) return "去签到";
+  if (!isCheckedIn.value) return "去签到";
   if (auditStatus.value === 0) return "查看状态";
   return "";
 });
 
 // 状态卡片点击处理
 const handleStatusAction = () => {
-  if (!userStore.isRegistered) {
+  if (!isCheckedIn.value) {
     router.push("/checkIn");
   } else if (auditStatus.value === 0) {
     router.push("/checkIn/status");
