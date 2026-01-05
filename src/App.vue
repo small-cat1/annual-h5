@@ -83,7 +83,7 @@ const retry = () => {
   init();
 };
 
-onMounted(() => {
+onMounted(async () => {
   await router.isReady();
   // 此时 route.query 一定有值了
   const activityId = route.query.activityId || new URLSearchParams(window.location.search).get('activityId');
