@@ -24,15 +24,9 @@ export default defineConfig(({ mode }) => {
       host: "0.0.0.0",
       port: 8008,
       proxy: {
-        "/console": {
-          target: env.VITE_API_BASE_URL,
-          changeOrigin: true,
-          // rewrite: (path) => path.replace(/^\/api/, '')  // 去掉 /api 前缀
-        },
         "/h5": {
           target: env.VITE_API_BASE_URL,
           changeOrigin: true,
-          // rewrite: (path) => path.replace(/^\/api/, ""), // 去掉 /api 前缀
         },
         "/wx": {
           target: env.VITE_API_BASE_URL,

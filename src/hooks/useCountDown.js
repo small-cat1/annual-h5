@@ -1,4 +1,3 @@
-// 倒计时 Hook
 import { ref, onUnmounted } from 'vue'
 
 export function useCountDown(initialTime = 0, options = {}) {

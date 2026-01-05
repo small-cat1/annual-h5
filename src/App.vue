@@ -3,8 +3,24 @@
 </template>
 
 <script setup>
-// App.vue 只作为路由容器，不处理业务逻辑
-// 活动验证等逻辑移到具体页面中处理
+import { useActivityStore } from "@/store/modules/activity";
+import { useUserStore } from "@/store/modules/user";
+import { useWebSocketStore } from "@/store/modules/websocket";
+import { watch } from "vue";
+
+const userStore = useUserStore();
+const activityStore = useActivityStore();
+const wsStore = useWebSocketStore();
+
+// 登录成功后自动连接 WebSocket
+watch(
+  () => userStore.isLoggedIn,
+  (loggedIn) => {
+    if (loggedIn && activityStore.activityId) {
+      wsStore.connect(activityStore.activityId);
+    }
+  }
+);
 </script>
 
 <style>

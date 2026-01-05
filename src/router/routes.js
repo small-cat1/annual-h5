@@ -83,21 +83,6 @@ export const routes = [
     component: () => import("@/views/prize/Detail.vue"),
     meta: { title: "奖品详情", requiresAuth: true },
   },
-
-  // ========== 控制台 ==========
-  {
-    path: "/screen",
-    name: "Screen",
-    component: () => import("@/views/console/Index.vue"),
-    meta: { title: "活动控制台", requiresAuth: false },
-  },
-  {
-    path: "/screen/game",
-    name: "ScreenGame",
-    component: () => import("@/views/console/Game.vue"),
-    meta: { title: "游戏控制", requiresAuth: false },
-  },
-
   // ========== 错误页面 ==========
   {
     path: "/404",
