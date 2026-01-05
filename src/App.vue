@@ -55,9 +55,10 @@
 import { useActivityStore, useUserStore } from "@/store";
 import { formatDate } from "@/utils/format";
 import { onMounted, ref } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute,useRouter } from "vue-router";
 
 const route = useRoute();
+const router = useRouter();
 const activityStore = useActivityStore();
 const userStore = useUserStore();
 

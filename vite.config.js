@@ -1,71 +1,71 @@
-import { defineConfig, loadEnv } from 'vite'
-import vue from '@vitejs/plugin-vue'
-import Components from 'unplugin-vue-components/vite'
-import { VantResolver } from '@vant/auto-import-resolver'
-import { fileURLToPath, URL } from 'node:url'
+import { VantResolver } from "@vant/auto-import-resolver";
+import vue from "@vitejs/plugin-vue";
+import { fileURLToPath, URL } from "node:url";
+import Components from "unplugin-vue-components/vite";
+import { defineConfig, loadEnv } from "vite";
 
 export default defineConfig(({ mode }) => {
   // 加载环境变量
-  const env = loadEnv(mode, process.cwd())
-  
+  const env = loadEnv(mode, process.cwd());
+
   return {
     plugins: [
       vue(),
       Components({
-        resolvers: [VantResolver()]
-      })
+        resolvers: [VantResolver()],
+      }),
     ],
     resolve: {
       alias: {
-        '@': fileURLToPath(new URL('./src', import.meta.url))
-      }
+        "@": fileURLToPath(new URL("./src", import.meta.url)),
+      },
     },
     server: {
-      host: '0.0.0.0',
+      host: "0.0.0.0",
       port: 8008,
       proxy: {
-            '/console': {
+        "/console": {
           target: env.VITE_API_BASE_URL,
           changeOrigin: true,
           // rewrite: (path) => path.replace(/^\/api/, '')  // 去掉 /api 前缀
         },
-        '/api': {
+        "/h5": {
           target: env.VITE_API_BASE_URL,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/api/, '')  // 去掉 /api 前缀
+          // rewrite: (path) => path.replace(/^\/api/, ""), // 去掉 /api 前缀
         },
-        '/socket.io': {
+        "/wx": {
           target: env.VITE_API_BASE_URL,
-          ws: true
-        }
-      }
+          ws: true,
+        },
+      },
     },
     css: {
       postcss: {
         plugins: [
           {
-            postcssPlugin: 'postcss-px-to-viewport',
+            postcssPlugin: "postcss-px-to-viewport",
             viewportWidth: 375,
             unitPrecision: 5,
-            viewportUnit: 'vw',
+            viewportUnit: "vw",
             selectorBlackList: [],
             minPixelValue: 1,
-            mediaQuery: false
-          }
-        ]
-      }
+            mediaQuery: false,
+          },
+        ],
+      },
     },
     build: {
-      outDir: 'dist',
-      assetsDir: 'assets',
+      outDir: "dist",
+      assetsDir: "assets",
       sourcemap: false,
-      minify: 'terser',
+      minify: "terser",
       terserOptions: {
         compress: {
           drop_console: true,
-          drop_debugger: true
-        }
-      }
-    }
-  }
-})
+          drop_debugger: true,
+        },
+      },
+    },
+  };
+});
