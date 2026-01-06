@@ -1,5 +1,5 @@
 // 摇一摇相关接口
-import { post, get } from '@/utils/request'
+import { get } from "@/utils/request";
 
 /**
  * 获取当前场次
@@ -7,7 +7,14 @@ import { post, get } from '@/utils/request'
  * @returns {Promise}
  */
 export function getCurrentRound(activityId) {
-  return get(`/h5/shake/round/current/${activityId}`)
+  return get(
+    `/h5/shake/round/current/${activityId}`,
+    {},
+    {
+      showLoading: false,
+      showError: false,
+    }
+  );
 }
 
 /**
@@ -16,5 +23,5 @@ export function getCurrentRound(activityId) {
  * @returns {Promise}
  */
 export function getRoundResult(roundId) {
-  return get(`/h5/shake/result/${roundId}`)
+  return get(`/h5/shake/result/${roundId}`);
 }
