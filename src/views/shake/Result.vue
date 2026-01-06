@@ -95,7 +95,7 @@
 
 <script setup>
 import { getRoundResult } from "@/api/shake";
-import { useGameDispatcher } from "@/composables/useGameDispatcher";
+import { useGameStore, useUserStore } from "@/store";
 import { useGameStore, useUserStore } from "@/store";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
@@ -103,7 +103,6 @@ import { useRouter } from "vue-router";
 const router = useRouter();
 const gameStore = useGameStore();
 const userStore = useUserStore();
-const gameDispatcher = useGameDispatcher();
 
 const defaultAvatar = "https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg";
 const userId = userStore.userId;
@@ -128,13 +127,13 @@ const formatRank = (rank) => {
 // 跳转
 const viewPrize = () => {
   // 重置状态，准备下一场
-  gameDispatcher.resetForNextRound();
+  gameStore.resetGame(); 
   router.push("/prize");
 };
 
 const goHome = () => {
   // 重置状态，准备下一场
-  gameDispatcher.resetForNextRound();
+  gameStore.resetGame();  
   router.replace("/");
 };
 
