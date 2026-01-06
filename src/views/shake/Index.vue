@@ -364,15 +364,42 @@ const triggerShakeAnimation = () => {
   }, 200);
 };
 
+// ⭐ 上次发送的分数
+let lastSentScore = 0;
+
 const sendScoreToServer = () => {
-  if (gameStore.shakeCount > 0 && gameStore.roundId) {
-    const data = { roundId: gameStore.roundId, score: gameStore.shakeCount };
-    try {
-      wsStore.send("shake_score", data);
-      debug.log(`发送成功: score=${data.score}`, "success");
-    } catch (error) {
-      debug.log(`发送失败: ${error.message}`, "error");
+  const currentScore = gameStore.shakeCount;
+
+  // ⭐ 分数没变化，跳过发送
+  if (currentScore === lastSentScore) {
+    return;
+  }
+
+  if (!gameStore.roundId) {
+    debug.log("roundId 为空，跳过发送", "error");
+    return;
+  }
+
+  if (currentScore <= 0) {
+    return;
+  }
+
+  if (!wsStore.isConnected) {
+    debug.log("WebSocket 未连接，跳过发送", "error");
+    return;
+  }
+
+  const data = { roundId: gameStore.roundId, score: currentScore };
+  try {
+    const result = wsStore.send("shake_score", data);
+    if (result) {
+      lastSentScore = currentScore; // ⭐ 更新上次发送的分数
+      debug.log(`发送成功: score=${currentScore}`, "success");
+    } else {
+      debug.log("发送失败: send 返回 false", "error");
     }
+  } catch (error) {
+    debug.log(`发送异常: ${error.message}`, "error");
   }
 };
 
@@ -396,6 +423,7 @@ const handleGameStart = (data) => {
     endTime.value = data.endTime;
     totalTime.value = data.duration || 30;
     currentTime.value = Date.now();
+    lastSentScore = 0; // ⭐ 重置上次发送的分数
 
     debug.setState(
       "🎮 游戏",
@@ -522,9 +550,10 @@ onMounted(async () => {
     endTime.value = gameStore.endTime;
     totalTime.value = gameStore.totalTime || 30;
     currentTime.value = Date.now();
+    lastSentScore = gameStore.shakeCount; // ⭐ 恢复上次发送的分数
 
     debug.log(
-      `endTime: ${gameStore.endTime}, 剩余: ${remainTime.value}s`,
+      `endTime: ${gameStore.endTime}, 剩余: ${remainTime.value}s, 分数: ${gameStore.shakeCount}`,
       "info"
     );
     debug.setState(
