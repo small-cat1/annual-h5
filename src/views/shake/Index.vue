@@ -446,7 +446,6 @@ const fetchCurrentGame = async () => {
         gameStore.setTotalTime(round.duration || 30);
         gameStore.setRoundId(round.ID);
         gameStore.setShakeCount(round.myScore);
-        shakeDetector.setCount(round.myScore);
 
         // 启动定时器
         startTimeUpdater();
