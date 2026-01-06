@@ -202,7 +202,7 @@ const handlePermissionClick = async () => {
 
       if (permission === "granted") {
         showPermissionModal.value = false;
-        await initShake();
+        await initShake(gameStore.shakeCount); // ⭐ 传入当前分数
       }
     } catch (error) {
       permissionStatus.value = "denied";
@@ -267,7 +267,7 @@ const initShake = async () => {
       },
     });
 
-    await shakeDetector.start();
+    await shakeDetector.start(initialCount); // ⭐ 传入初始分数
     shakeDetectorReady.value = true;
   } catch (error) {
     shakeDetectorReady.value = false;
@@ -455,7 +455,7 @@ const fetchCurrentGame = async () => {
         // 初始化摇动检测
         const permStatus = checkPermissionStatus();
         if (permStatus === "granted") {
-          initShake();
+          initShake(myScore); // ⭐ 传入初始分数
         } else if (permStatus === "unknown" && needsPermission()) {
           showPermissionModal.value = true;
         }
@@ -502,7 +502,7 @@ onMounted(async () => {
 
     // 初始化摇动检测
     if (status === "granted") {
-      initShake();
+      initShake(gameStore.shakeCount); // ⭐ 传入已恢复的分数
     } else if (status === "unknown" && needsPermission()) {
       showPermissionModal.value = true;
     }
