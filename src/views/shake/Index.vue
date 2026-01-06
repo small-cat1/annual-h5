@@ -511,17 +511,20 @@ onMounted(async () => {
   // 订阅 WebSocket
   subscribeWebSocket();
 
-  // ⭐ 尝试从 sessionStorage 恢复游戏状态（页面刷新）
-  const restored = gameStore.restoreFromSession();
-  if (restored) {
-    debug.log("从 session 恢复游戏状态", "info");
+  // ⭐ 检查是否有进行中的游戏（由 dispatcher 设置或 session 恢复）
+  // 先尝试从 session 恢复
+  gameStore.restoreFromSession();
+
+  // 检查 store 中是否有游戏数据
+  if (gameStore.gameStatus === "playing" && gameStore.endTime) {
+    debug.log("检测到游戏进行中", "info");
 
     endTime.value = gameStore.endTime;
     totalTime.value = gameStore.totalTime || 30;
     currentTime.value = Date.now();
 
     debug.log(
-      `恢复 endTime: ${gameStore.endTime}, 剩余: ${remainTime.value}s`,
+      `endTime: ${gameStore.endTime}, 剩余: ${remainTime.value}s`,
       "info"
     );
     debug.setState(
@@ -534,7 +537,7 @@ onMounted(async () => {
 
     // 检查游戏是否已结束
     if (remainTime.value <= 0) {
-      debug.log("游戏已结束（刷新时检测）", "info");
+      debug.log("游戏已结束", "info");
       onGameEnd();
       return;
     }
@@ -549,6 +552,8 @@ onMounted(async () => {
     } else if (status === "unknown" && needsPermission()) {
       showPermissionModal.value = true;
     }
+  } else {
+    debug.log("暂无进行中的游戏，等待广播", "info");
   }
 });
 
