@@ -120,9 +120,13 @@
             <van-icon name="gift-o" size="32" />
           </div>
           <span class="menu-text">摇一摇</span>
-          <van-tag v-if="!canJoinLottery" type="warning" size="mini"
-            >需签到</van-tag
-          >
+          <!-- ⭐ 修改：优先显示"进行中"，否则显示"需签到" -->
+          <van-tag v-if="hasActiveGame" type="danger" size="mini" class="blink">
+            进行中
+          </van-tag>
+          <van-tag v-else-if="!canJoinLottery" type="warning" size="mini">
+            需签到
+          </van-tag>
         </div>
 
         <!-- 发弹幕 -->
@@ -175,19 +179,23 @@
 </template>
 
 <script setup>
-import { useActivityStore, useUserStore } from "@/store";
+import { getCurrentRound } from "@/api/shake";
+import { useActivityStore, useUserStore, useWebSocketStore } from "@/store";
 import { formatDate } from "@/utils/format";
 import { showToast } from "vant";
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
 const userStore = useUserStore();
 const activityStore = useActivityStore();
+const wsStore = useWebSocketStore();
 
 const loading = ref(true);
 const defaultAvatar = "https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg";
-
+// ⭐ 新增：游戏状态
+const hasActiveGame = ref(false);
+const activeRound = ref(null);
 // 是否已签到（使用 store 中的 getter）
 const isCheckedIn = computed(() => userStore.isCheckedIn);
 
@@ -241,6 +249,53 @@ const statusBtnText = computed(() => {
   return "";
 });
 
+// ⭐ 新增：检查当前游戏状态
+const checkGameStatus = async () => {
+  if (!activityStore.activityId) return;
+
+  try {
+    const res = await getCurrentRound(activityStore.activityId);
+    if (res.code === 0 && res.data && res.data.status === 1) {
+      hasActiveGame.value = true;
+      activeRound.value = res.data;
+    } else {
+      hasActiveGame.value = false;
+      activeRound.value = null;
+    }
+  } catch (e) {
+    console.error("获取游戏状态失败:", e);
+  }
+};
+
+// ⭐ 新增：订阅 WebSocket 游戏事件
+const subscribeGameEvents = () => {
+  if (!wsStore.ws) return;
+
+  gameStartUnsubscribe = wsStore.subscribe("game_start", (data) => {
+    console.log("[Home] 收到游戏开始:", data);
+    hasActiveGame.value = true;
+    activeRound.value = data.round || null;
+  });
+
+  gameStopUnsubscribe = wsStore.subscribe("game_stop", (data) => {
+    console.log("[Home] 收到游戏结束:", data);
+    hasActiveGame.value = false;
+    activeRound.value = null;
+  });
+};
+
+// ⭐ 新增：取消订阅
+const unsubscribeGameEvents = () => {
+  if (gameStartUnsubscribe) {
+    gameStartUnsubscribe();
+    gameStartUnsubscribe = null;
+  }
+  if (gameStopUnsubscribe) {
+    gameStopUnsubscribe();
+    gameStopUnsubscribe = null;
+  }
+};
+
 // 状态卡片点击处理
 const handleStatusAction = () => {
   if (!isCheckedIn.value) {
@@ -265,6 +320,7 @@ const handleCheckIn = () => {
 
 // 摇一摇按钮处理
 const handleShake = () => {
+  // 检查权限
   if (!canJoinLottery.value) {
     if (!isCheckedIn.value) {
       showToast("请先完成签到");
@@ -275,6 +331,7 @@ const handleShake = () => {
     }
     return;
   }
+
   router.push("/shake");
 };
 
@@ -304,8 +361,10 @@ const init = async () => {
   // 初始化活动信息
   await activityStore.init(activityId);
 
-
-
+  // ⭐ 新增：检查游戏状态
+  await checkGameStatus();
+  // ⭐ 新增：订阅游戏事件
+  subscribeGameEvents();
   loading.value = false;
 };
 
@@ -315,6 +374,10 @@ const retry = () => {
 
 onMounted(() => {
   init();
+});
+// ⭐ 新增：组件卸载时取消订阅
+onUnmounted(() => {
+  unsubscribeGameEvents();
 });
 </script>
 
@@ -588,6 +651,20 @@ onMounted(() => {
       font-size: 16px;
       margin-bottom: 20px;
     }
+  }
+}
+
+.blink {
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
   }
 }
 </style>

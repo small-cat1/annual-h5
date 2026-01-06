@@ -4,6 +4,10 @@ import { defineStore } from "pinia";
 
 export const useGameStore = defineStore("game", {
   state: () => ({
+    // ⭐ 新增：是否有进行中的游戏（首页入口显示用）
+    hasActiveGame: false,
+    // ⭐ 新增：进行中的游戏简要信息
+    activeRoundInfo: null,
     // 当前场次
     currentRound: null,
     // 场次ID（单独存储，方便恢复）
@@ -57,6 +61,11 @@ export const useGameStore = defineStore("game", {
   },
 
   actions: {
+    // ⭐ 新增：设置活动游戏状态（首页用）
+    setActiveGame(hasActive, roundInfo = null) {
+      this.hasActiveGame = hasActive;
+      this.activeRoundInfo = roundInfo;
+    },
     /**
      * 设置当前场次
      */

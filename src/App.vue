@@ -3,7 +3,6 @@
 </template>
 
 <script setup>
-import { useGameDispatcher } from "@/composables/useGameDispatcher";
 import { useActivityStore } from "@/store/modules/activity";
 import { useUserStore } from "@/store/modules/user";
 import { useWebSocketStore } from "@/store/modules/websocket";
@@ -30,10 +29,6 @@ watch(
       wsStore.connect(activityId);
     }
 
-    // 启动游戏调度中心（需要登录 + 活动ID）
-    if (loggedIn && activityId) {
-      gameDispatcher.start();
-    }
   },
   { immediate: true } // 关键：立即执行一次
 );

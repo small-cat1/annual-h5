@@ -130,8 +130,14 @@
 </template>
 
 <script setup>
+import { getCurrentRound } from "@/api/shake";
 import DebugPanel from "@/components/common/DebugPanel.vue";
-import { useGameStore, useUserStore, useWebSocketStore } from "@/store";
+import {
+  useActivityStore,
+  useGameStore,
+  useUserStore,
+  useWebSocketStore,
+} from "@/store";
 import { formatPrizeLevel, getUrl } from "@/utils/format";
 import { destroyShakeDetector, getShakeDetector } from "@/utils/shake";
 import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
@@ -141,6 +147,7 @@ const router = useRouter();
 const userStore = useUserStore();
 const gameStore = useGameStore();
 const wsStore = useWebSocketStore();
+const activityStore = useActivityStore();
 
 const isShaking = ref(false);
 
@@ -515,6 +522,59 @@ const unsubscribeAll = () => {
   }
 };
 
+// ⭐ 新增：获取当前游戏信息
+const fetchCurrentGame = async () => {
+  if (!activityStore.activityId) {
+    debug.log("无 activityId，跳过获取游戏", "warn");
+    return;
+  }
+
+  try {
+    debug.log("请求当前游戏状态...", "info");
+    const res = await getCurrentRound(activityStore.activityId);
+
+    if (res.code === 0 && res.data && res.data.status === 1) {
+      const round = res.data;
+      debug.log(`发现进行中的游戏: ${round.roundName}`, "success");
+
+      // 更新 store
+      gameStore.setCurrentRound(round);
+
+      // 如果有 endTimeMs，启动游戏
+      if (round.endTimeMs) {
+        endTime.value = round.endTimeMs;
+        totalTime.value = round.duration || 30;
+        currentTime.value = Date.now();
+
+        gameStore.startGame(round.endTimeMs, round.duration || 30);
+
+        debug.setState(
+          "🎮 游戏",
+          "endTime",
+          new Date(round.endTimeMs).toLocaleTimeString()
+        );
+        debug.setState("🎮 游戏", "剩余时间", remainTime.value + "s");
+
+        // 启动定时器
+        startTimeUpdater();
+        startScoreTimer();
+
+        // 初始化摇动检测
+        const permStatus = checkPermissionStatus();
+        if (permStatus === "granted") {
+          initShake();
+        } else if (permStatus === "unknown" && needsPermission()) {
+          showPermissionModal.value = true;
+        }
+      }
+    } else {
+      debug.log("暂无进行中的游戏", "info");
+    }
+  } catch (e) {
+    debug.log(`获取游戏状态失败: ${e.message}`, "error");
+  }
+};
+
 // ============ 生命周期 ============
 onMounted(async () => {
   debug.log("页面加载", "info");
@@ -523,7 +583,7 @@ onMounted(async () => {
   debug.setState(
     "🌐 网络",
     "WebSocket",
-    wsStore.connected ? "已连接" : "未连接"
+    wsStore.isConnected ? "已连接" : "未连接" // ⭐ 修复：connected → isConnected
   );
   debug.setState("🎮 游戏", "roundId", gameStore.roundId || "无");
   debug.setState("🎮 游戏", "摇动次数", 0);
@@ -538,7 +598,8 @@ onMounted(async () => {
 
   // 订阅 WebSocket
   subscribeWebSocket();
-
+  // ⭐ 新增：进入页面时请求当前游戏状态
+  await fetchCurrentGame();
   // ⭐ 检查是否有进行中的游戏（由 dispatcher 设置或 session 恢复）
   // 先尝试从 session 恢复
   gameStore.restoreFromSession();
