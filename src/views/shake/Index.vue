@@ -210,7 +210,7 @@ const handlePermissionClick = async () => {
   } else {
     permissionStatus.value = "granted";
     showPermissionModal.value = false;
-    await initShake();
+    await initShake(gameStore.shakeCount); // 传入当前分数
   }
 };
 
@@ -257,7 +257,7 @@ const shakeCount = computed(() => gameStore.shakeCount);
 const ranking = computed(() => gameStore.ranking);
 const myRank = computed(() => gameStore.myRank);
 
-const initShake = async () => {
+const initShake = async (initialCount = 0) => {
   try {
     shakeDetector = getShakeDetector({
       threshold: 12,
@@ -454,7 +454,7 @@ const fetchCurrentGame = async () => {
         // 初始化摇动检测
         const permStatus = checkPermissionStatus();
         if (permStatus === "granted") {
-          initShake(myScore); // ⭐ 传入初始分数
+          initShake(round.myScore || 0);
         } else if (permStatus === "unknown" && needsPermission()) {
           showPermissionModal.value = true;
         }
