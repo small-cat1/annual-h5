@@ -109,7 +109,10 @@ const fetchDetail = async () => {
   if (!winnerId) return
   
   try {
-    const res = await getWinningDetail(winnerId)
+    const res = await getWinningDetail({
+      winnerId:winnerId,
+      activityId:activityStore.activityId
+    })
     prizeInfo.value = res.data
   } catch (error) {
     console.error('获取详情失败:', error)

@@ -15,6 +15,6 @@ export function getMyWinnings(activityId) {
  * @param {number} winnerId 中奖记录ID
  * @returns {Promise}
  */
-export function getWinningDetail(winnerId) {
-  return get("/h5/prize/winning", { winnerId });
+export function getWinningDetail(params) {
+  return get("/h5/prize/winning", params);
 }
