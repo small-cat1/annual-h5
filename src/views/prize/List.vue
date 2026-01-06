@@ -15,7 +15,7 @@
             width="80"
             height="80"
             radius="8"
-            :src="item.prize?.image"
+            :src="getUrl(item.prize.image)"
             fit="cover"
           />
           <div class="prize-info">
@@ -57,7 +57,12 @@
 <script setup>
 import { getMyWinnings } from "@/api/prize";
 import { useActivityStore } from "@/store";
-import { formatDate, formatPrizeLevel, formatWinType } from "@/utils/format";
+import {
+  formatDate,
+  formatPrizeLevel,
+  formatWinType,
+  getUrl,
+} from "@/utils/format";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 

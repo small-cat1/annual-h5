@@ -1,10 +1,10 @@
 // 格式化工具
-import dayjs from 'dayjs'
-import relativeTime from 'dayjs/plugin/relativeTime'
-import 'dayjs/locale/zh-cn'
+import dayjs from "dayjs";
+import "dayjs/locale/zh-cn";
+import relativeTime from "dayjs/plugin/relativeTime";
 
-dayjs.extend(relativeTime)
-dayjs.locale('zh-cn')
+dayjs.extend(relativeTime);
+dayjs.locale("zh-cn");
 
 /**
  * 格式化日期
@@ -12,9 +12,9 @@ dayjs.locale('zh-cn')
  * @param {string} format 格式
  * @returns {string}
  */
-export function formatDate(date, format = 'YYYY-MM-DD HH:mm:ss') {
-  if (!date) return ''
-  return dayjs(date).format(format)
+export function formatDate(date, format = "YYYY-MM-DD HH:mm:ss") {
+  if (!date) return "";
+  return dayjs(date).format(format);
 }
 
 /**
@@ -23,8 +23,8 @@ export function formatDate(date, format = 'YYYY-MM-DD HH:mm:ss') {
  * @returns {string}
  */
 export function formatRelativeTime(date) {
-  if (!date) return ''
-  return dayjs(date).fromNow()
+  if (!date) return "";
+  return dayjs(date).fromNow();
 }
 
 /**
@@ -33,12 +33,12 @@ export function formatRelativeTime(date) {
  * @returns {string}
  */
 export function formatCountdown(seconds) {
-  if (seconds <= 0) return '00:00'
-  
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  
-  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+  if (seconds <= 0) return "00:00";
+
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
 /**
@@ -47,8 +47,8 @@ export function formatCountdown(seconds) {
  * @returns {string}
  */
 export function formatPhone(phone) {
-  if (!phone || phone.length !== 11) return phone
-  return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
+  if (!phone || phone.length !== 11) return phone;
+  return phone.replace(/(\d{3})\d{4}(\d{4})/, "$1****$2");
 }
 
 /**
@@ -57,14 +57,14 @@ export function formatPhone(phone) {
  * @returns {string}
  */
 export function formatName(name) {
-  if (!name) return ''
+  if (!name) return "";
   if (name.length === 2) {
-    return name[0] + '*'
+    return name[0] + "*";
   }
   if (name.length > 2) {
-    return name[0] + '*'.repeat(name.length - 2) + name[name.length - 1]
+    return name[0] + "*".repeat(name.length - 2) + name[name.length - 1];
   }
-  return name
+  return name;
 }
 
 /**
@@ -73,8 +73,8 @@ export function formatName(name) {
  * @returns {string}
  */
 export function formatNumber(num) {
-  if (num === null || num === undefined) return '0'
-  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  if (num === null || num === undefined) return "0";
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 /**
@@ -83,11 +83,11 @@ export function formatNumber(num) {
  * @returns {string}
  */
 export function formatRank(rank) {
-  if (!rank || rank <= 0) return '-'
-  if (rank === 1) return '🥇'
-  if (rank === 2) return '🥈'
-  if (rank === 3) return '🥉'
-  return `第${rank}名`
+  if (!rank || rank <= 0) return "-";
+  if (rank === 1) return "🥇";
+  if (rank === 2) return "🥈";
+  if (rank === 3) return "🥉";
+  return `第${rank}名`;
 }
 
 /**
@@ -97,13 +97,13 @@ export function formatRank(rank) {
  */
 export function formatPrizeLevel(level) {
   const levels = {
-    1: '特等奖',
-    2: '一等奖',
-    3: '二等奖',
-    4: '三等奖',
-    5: '参与奖'
-  }
-  return levels[level] || '未知'
+    1: "特等奖",
+    2: "一等奖",
+    3: "二等奖",
+    4: "三等奖",
+    5: "参与奖",
+  };
+  return levels[level] || "未知";
 }
 
 /**
@@ -113,11 +113,11 @@ export function formatPrizeLevel(level) {
  */
 export function formatWinType(type) {
   const types = {
-    1: '摇一摇',
-    2: '随机抽奖',
-    3: '弹幕抽奖'
-  }
-  return types[type] || '未知'
+    1: "摇一摇",
+    2: "随机抽奖",
+    3: "弹幕抽奖",
+  };
+  return types[type] || "未知";
 }
 
 /**
@@ -126,7 +126,7 @@ export function formatWinType(type) {
  * @returns {string}
  */
 export function formatReceiveStatus(status) {
-  return status === 1 ? '已领取' : '未领取'
+  return status === 1 ? "已领取" : "未领取";
 }
 
 /**
@@ -136,9 +136,24 @@ export function formatReceiveStatus(status) {
  */
 export function formatAuditStatus(status) {
   const statusMap = {
-    0: { text: '待审核', color: '#ff9800' },
-    1: { text: '已通过', color: '#4caf50' },
-    2: { text: '已拒绝', color: '#f44336' }
-  }
-  return statusMap[status] || { text: '未知', color: '#999' }
+    0: { text: "待审核", color: "#ff9800" },
+    1: { text: "已通过", color: "#4caf50" },
+    2: { text: "已拒绝", color: "#f44336" },
+  };
+  return statusMap[status] || { text: "未知", color: "#999" };
 }
+
+const path = import.meta.env.VITE_FILE_API;
+export const getUrl = (url) => {
+  if (url && url.slice(0, 4) !== "http") {
+    if (path === "/") {
+      return url;
+    }
+    if (url.slice(0, 1) === "/") {
+      return path + url;
+    }
+    return path + "/" + url;
+  } else {
+    return url;
+  }
+};
