@@ -99,7 +99,6 @@
 <script setup>
 import CountDown from "@/components/common/CountDown.vue";
 import {
-  useActivityStore,
   useGameStore,
   useUserStore,
   useWebSocketStore,
@@ -111,7 +110,6 @@ import { useRouter } from "vue-router";
 
 const router = useRouter();
 const userStore = useUserStore();
-const activityStore = useActivityStore();
 const gameStore = useGameStore();
 const wsStore = useWebSocketStore();
 
