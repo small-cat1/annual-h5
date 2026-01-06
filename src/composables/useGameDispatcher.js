@@ -1,8 +1,3 @@
-/**
- * 游戏调度中心
- * 负责轮询游戏状态，判断权限，触发页面跳转
- * 在 App 级别运行，贯穿整个活动的多场游戏
- */
 import { getCurrentRound } from "@/api/shake";
 import { useActivityStore, useGameStore, useUserStore } from "@/store";
 import { onUnmounted, ref } from "vue";
