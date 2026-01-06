@@ -138,7 +138,7 @@ export function useGameDispatcher() {
 
     // 检查当前是否已在游戏页
     const currentPath = router.currentRoute.value.path
-    if (currentPath === '/shake/playing') {
+    if (currentPath === '/shake') {
       // 已在游戏页，更新场次信息（可能是新一轮）
       gameStore.setCurrentRound(round)
       gameStore.startGame()
@@ -153,7 +153,7 @@ export function useGameDispatcher() {
 
     // 跳转到游戏页
     console.log('[GameDispatcher] 跳转到游戏页')
-    router.push('/shake/playing')
+    router.push('/shake')
   }
 
   /**
@@ -166,7 +166,7 @@ export function useGameDispatcher() {
     
     // 如果在游戏页，让 Playing.vue 自己处理跳转
     // 这里不做任何事情，避免冲突
-    if (currentPath === '/shake/playing') {
+    if (currentPath === '/shake') {
       return
     }
 
