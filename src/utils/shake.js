@@ -57,7 +57,7 @@ class ShakeDetector {
   }
 
   // 启动监听
-  async start() {
+  async start(initialCount = 0) {
     if (!this.isSupported()) {
       const msg = "当前设备不支持 DeviceMotion API";
       this.onDebug(msg, "error");
@@ -74,7 +74,7 @@ class ShakeDetector {
       }
     }
 
-    this.shakeCount = 0;
+    this.shakeCount = initialCount;
     this.isListening = true;
     window.addEventListener("devicemotion", this.handleMotion, true);
     this.onDebug("开始监听 devicemotion 事件", "success");
@@ -89,6 +89,10 @@ class ShakeDetector {
     this.onDebug("停止监听 devicemotion 事件", "info");
   }
 
+
+  setCount(count) {
+    this.shakeCount = count;
+  }
   // 重置计数
   reset() {
     this.shakeCount = 0;

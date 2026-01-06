@@ -15,9 +15,6 @@
       </div>
     </van-overlay>
 
-    <!-- 调试面板 - 上线时删除这一行即可 -->
-    <DebugPanel v-bind="debugProps" />
-
     <div class="shake-content">
       <!-- 无场次 -->
       <div v-if="!currentRound" class="no-round">
@@ -131,7 +128,6 @@
 
 <script setup>
 import { getCurrentRound } from "@/api/shake";
-import DebugPanel from "@/components/common/DebugPanel.vue";
 import {
   useActivityStore,
   useGameStore,
@@ -140,7 +136,7 @@ import {
 } from "@/store";
 import { formatPrizeLevel, getUrl } from "@/utils/format";
 import { destroyShakeDetector, getShakeDetector } from "@/utils/shake";
-import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
@@ -180,65 +176,6 @@ const dashOffset = computed(() => {
   return circumference * (1 - progress);
 });
 
-// ============ 调试相关 ============
-const debugLogs = ref([]);
-const debugStates = reactive({
-  "📱 权限": {},
-  "🎮 游戏": {},
-  "🌐 网络": {},
-});
-const debugActions = ref([]);
-
-const debug = {
-  log(msg, type = "info") {
-    const now = new Date();
-    const time = `${now.getMinutes()}:${now
-      .getSeconds()
-      .toString()
-      .padStart(2, "0")}`;
-    debugLogs.value.unshift({ time, msg, type });
-    if (debugLogs.value.length > 15) debugLogs.value.pop();
-    console.log(`[Shake] [${type}] ${msg}`);
-  },
-  setState(section, key, value) {
-    if (debugStates[section]) {
-      debugStates[section][key] = value;
-    }
-  },
-};
-
-const debugProps = computed(() => ({
-  enabled: true, // 上线时改为 false
-  logs: debugLogs.value,
-  states: debugStates,
-  actions: debugActions.value,
-}));
-
-debugActions.value = [
-  {
-    label: "模拟摇动",
-    handler: () => {
-      debug.log("模拟摇动", "info");
-      gameStore.setShakeCount(gameStore.shakeCount + 1);
-      triggerShakeAnimation();
-    },
-  },
-  {
-    label: "测试发送",
-    handler: () => {
-      debug.log("手动发送", "info");
-      sendScoreToServer();
-    },
-  },
-  {
-    label: "清空日志",
-    handler: () => {
-      debugLogs.value = [];
-      debug.log("日志已清空", "info");
-    },
-  },
-];
-
 // ============ 权限相关 ============
 const showPermissionModal = ref(false);
 const permissionStatus = ref("unknown");
@@ -258,30 +195,20 @@ const checkPermissionStatus = () => {
 };
 
 const handlePermissionClick = async () => {
-  debug.log("用户点击授权按钮", "info");
-
   if (needsPermission()) {
     try {
       const permission = await DeviceMotionEvent.requestPermission();
-      debug.log(
-        `权限结果: ${permission}`,
-        permission === "granted" ? "success" : "error"
-      );
       permissionStatus.value = permission;
-      debug.setState("📱 权限", "状态", permission);
 
       if (permission === "granted") {
         showPermissionModal.value = false;
         await initShake();
       }
     } catch (error) {
-      debug.log(`授权异常: ${error.message}`, "error");
       permissionStatus.value = "denied";
-      debug.setState("📱 权限", "状态", "denied");
     }
   } else {
     permissionStatus.value = "granted";
-    debug.setState("📱 权限", "状态", "granted");
     showPermissionModal.value = false;
     await initShake();
   }
@@ -293,14 +220,11 @@ const handlePermissionClick = async () => {
 const startTimeUpdater = () => {
   if (timeUpdateTimer) return;
 
-  debug.log("启动时间更新器", "info");
   timeUpdateTimer = setInterval(() => {
     currentTime.value = Date.now();
-    debug.setState("🎮 游戏", "剩余时间", remainTime.value + "s");
 
     // 检查游戏是否结束
     if (remainTime.value <= 0) {
-      debug.log("倒计时结束", "info");
       stopTimeUpdater();
       onGameEnd();
     }
@@ -318,13 +242,9 @@ const stopTimeUpdater = () => {
 // ⭐ 监听页面可见性变化（手机黑屏恢复）
 const handleVisibilityChange = () => {
   if (!document.hidden && gameStatus.value === "playing") {
-    debug.log("页面恢复可见，同步时间", "info");
     currentTime.value = Date.now();
-    debug.setState("🎮 游戏", "剩余时间", remainTime.value + "s");
-
     // 如果游戏已结束
     if (remainTime.value <= 0) {
-      debug.log("游戏已结束（恢复时检测）", "info");
       onGameEnd();
     }
   }
@@ -338,28 +258,20 @@ const ranking = computed(() => gameStore.ranking);
 const myRank = computed(() => gameStore.myRank);
 
 const initShake = async () => {
-  debug.log("初始化摇动检测器...", "info");
-
   try {
     shakeDetector = getShakeDetector({
       threshold: 12,
       onShake: (count) => {
-        debug.log(`摇动! 次数: ${count}`, "success");
         gameStore.setShakeCount(count);
         triggerShakeAnimation();
-        debug.setState("🎮 游戏", "摇动次数", count);
       },
-      onDebug: (msg, type) => debug.log(msg, type),
     });
 
     await shakeDetector.start();
     shakeDetectorReady.value = true;
-    debug.log("检测器启动成功 ✓", "success");
-    debug.setState("📱 权限", "检测器", "已启动");
   } catch (error) {
     shakeDetectorReady.value = false;
-    debug.log(`启动失败: ${error.message}`, "error");
-    debug.setState("📱 权限", "检测器", "启动失败");
+    console.log(`启动失败: ${error.message}`, "error");
   }
 };
 
@@ -383,7 +295,6 @@ const sendScoreToServer = () => {
   }
 
   if (!gameStore.roundId) {
-    debug.log("roundId 为空，跳过发送", "error");
     return;
   }
 
@@ -392,7 +303,6 @@ const sendScoreToServer = () => {
   }
 
   if (!wsStore.isConnected) {
-    debug.log("WebSocket 未连接，跳过发送", "error");
     return;
   }
 
@@ -401,17 +311,14 @@ const sendScoreToServer = () => {
     const result = wsStore.send("shake_score", data);
     if (result) {
       lastSentScore = currentScore; // ⭐ 更新上次发送的分数
-      debug.log(`发送成功: score=${currentScore}`, "success");
     } else {
-      debug.log("发送失败: send 返回 false", "error");
     }
   } catch (error) {
-    debug.log(`发送异常: ${error.message}`, "error");
+    console.log(`发送异常: ${error.message}`, "error");
   }
 };
 
 const startScoreTimer = () => {
-  debug.log("启动定时上报", "info");
   scoreTimer = setInterval(sendScoreToServer, 500);
 };
 
@@ -424,20 +331,11 @@ const stopScoreTimer = () => {
 
 // ⭐ 处理游戏开始（WebSocket 广播）
 const handleGameStart = (data) => {
-  debug.log(`收到游戏开始广播: endTime=${data.endTime}`, "success");
-
   if (data.endTime) {
     endTime.value = data.endTime;
     totalTime.value = data.duration || 30;
     currentTime.value = Date.now();
     lastSentScore = 0; // ⭐ 重置上次发送的分数
-
-    debug.setState(
-      "🎮 游戏",
-      "endTime",
-      new Date(data.endTime).toLocaleTimeString()
-    );
-    debug.setState("🎮 游戏", "剩余时间", remainTime.value + "s");
 
     // 更新 store 状态（会自动持久化到 sessionStorage）
     if (data.round) {
@@ -464,14 +362,11 @@ const handleGameStart = (data) => {
 
 // ⭐ 处理游戏结束（WebSocket 广播）
 const handleGameStop = (data) => {
-  debug.log("收到游戏结束广播", "info");
   onGameEnd();
 };
 
 // 游戏结束处理
 const onGameEnd = () => {
-  debug.log("游戏结束", "info");
-
   // 最后上报一次分数
   sendScoreToServer();
 
@@ -488,15 +383,12 @@ const onGameEnd = () => {
 
 // 监听排名更新
 const subscribeWebSocket = () => {
-  debug.log("订阅 WebSocket 事件", "info");
-
   rankingUnsubscribe = wsStore.subscribe("ranking_update", (data) => {
     if (data.roundId !== gameStore.roundId) return;
     gameStore.updateRanking(data.ranking || []);
     const myRankItem = data.ranking?.find((r) => r.userId === userStore.userId);
     if (myRankItem) {
       gameStore.updateMyRank(myRankItem.rank);
-      debug.setState("🎮 游戏", "我的排名", `第${myRankItem.rank}名`);
     }
   });
 
@@ -524,49 +416,42 @@ const unsubscribeAll = () => {
 
 const fetchCurrentGame = async () => {
   if (!activityStore.activityId) {
-    debug.log("无 activityId，跳过获取游戏", "warn");
     return;
   }
 
   try {
-    debug.log("请求当前游戏状态...", "info");
     const res = await getCurrentRound(activityStore.activityId);
-    
+
     if (res.code === 0 && res.data && res.data.status === 1) {
       const round = res.data;
-      debug.log(`发现进行中的游戏: ${round.roundName}`, "success");
-      
+
       // 更新 store
       gameStore.setCurrentRound(round);
-      
+
       // ⭐ 恢复用户分数
       if (round.myScore > 0) {
         gameStore.setShakeCount(round.myScore);
-        lastSentScore = round.myScore;  // ⭐ 同步上次发送的分数，避免重复发送
-        debug.log(`恢复分数: ${round.myScore}`, "success");
-        debug.setState("🎮 游戏", "摇动次数", round.myScore);
+        lastSentScore = round.myScore; // ⭐ 同步上次发送的分数，避免重复发送
       }
-      
+
       // 如果有 endTimeMs，启动游戏
       if (round.endTimeMs) {
         endTime.value = round.endTimeMs;
         totalTime.value = round.duration || 30;
         currentTime.value = Date.now();
-        
+
         // ⭐ 设置游戏状态（不调用 startGame 避免清零分数）
         gameStore.setGameStatus("playing");
         gameStore.setEndTime(round.endTimeMs);
         gameStore.setTotalTime(round.duration || 30);
         gameStore.setRoundId(round.ID);
-        
-        debug.setState("🎮 游戏", "endTime", new Date(round.endTimeMs).toLocaleTimeString());
-        debug.setState("🎮 游戏", "剩余时间", remainTime.value + "s");
-        debug.setState("🎮 游戏", "roundId", round.ID);
-        
+        gameStore.setShakeCount(round.myScore);
+        shakeDetector.setCount(round.myScore);
+
         // 启动定时器
         startTimeUpdater();
         startScoreTimer();
-        
+
         // 初始化摇动检测
         const permStatus = checkPermissionStatus();
         if (permStatus === "granted") {
@@ -576,33 +461,20 @@ const fetchCurrentGame = async () => {
         }
       }
     } else {
-      debug.log("暂无进行中的游戏", "info");
     }
   } catch (e) {
-    debug.log(`获取游戏状态失败: ${e.message}`, "error");
+    console.log(`获取游戏状态失败: ${e.message}`, "error");
   }
 };
 
 // ============ 生命周期 ============
 onMounted(async () => {
-  debug.log("页面加载", "info");
-  debug.setState("📱 权限", "HTTPS", window.location.protocol === "https:");
-  debug.setState("📱 权限", "需要授权", needsPermission());
-  debug.setState(
-    "🌐 网络",
-    "WebSocket",
-    wsStore.isConnected ? "已连接" : "未连接" // ⭐ 修复：connected → isConnected
-  );
-  debug.setState("🎮 游戏", "roundId", gameStore.roundId || "无");
-  debug.setState("🎮 游戏", "摇动次数", 0);
-
   // 添加页面可见性监听
   document.addEventListener("visibilitychange", handleVisibilityChange);
 
   // 检查权限状态
   const status = checkPermissionStatus();
   permissionStatus.value = status;
-  debug.setState("📱 权限", "状态", status);
 
   // 订阅 WebSocket
   subscribeWebSocket();
@@ -614,28 +486,12 @@ onMounted(async () => {
 
   // 检查 store 中是否有游戏数据
   if (gameStore.gameStatus === "playing" && gameStore.endTime) {
-    debug.log("检测到游戏进行中", "info");
-
     endTime.value = gameStore.endTime;
     totalTime.value = gameStore.totalTime || 30;
     currentTime.value = Date.now();
     lastSentScore = gameStore.shakeCount; // ⭐ 恢复上次发送的分数
-
-    debug.log(
-      `endTime: ${gameStore.endTime}, 剩余: ${remainTime.value}s, 分数: ${gameStore.shakeCount}`,
-      "info"
-    );
-    debug.setState(
-      "🎮 游戏",
-      "endTime",
-      new Date(gameStore.endTime).toLocaleTimeString()
-    );
-    debug.setState("🎮 游戏", "剩余时间", remainTime.value + "s");
-    debug.setState("🎮 游戏", "roundId", gameStore.roundId || "无");
-
     // 检查游戏是否已结束
     if (remainTime.value <= 0) {
-      debug.log("游戏已结束", "info");
       onGameEnd();
       return;
     }
@@ -651,12 +507,11 @@ onMounted(async () => {
       showPermissionModal.value = true;
     }
   } else {
-    debug.log("暂无进行中的游戏，等待广播", "info");
+    console.log("暂无进行中的游戏，等待广播", "info");
   }
 });
 
 onUnmounted(() => {
-  debug.log("页面卸载", "info");
   unsubscribeAll();
   stopTimeUpdater();
   stopScoreTimer();
