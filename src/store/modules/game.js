@@ -1,10 +1,13 @@
 // 游戏状态管理
 import { defineStore } from 'pinia'
+import { getSession, setSession, removeSession } from '@/utils/storage'
 
 export const useGameStore = defineStore('game', {
   state: () => ({
     // 当前场次
     currentRound: null,
+    // 场次ID（单独存储，方便恢复）
+    roundId: null,
     // 游戏状态 idle | waiting | playing | finished
     gameStatus: 'idle',
     // 摇动次数
@@ -13,8 +16,10 @@ export const useGameStore = defineStore('game', {
     ranking: [],
     // 我的排名
     myRank: 0,
-    // 剩余时间（秒）
-    remainTime: 0,
+    // ⭐ 游戏结束时间戳（毫秒）- 替代 remainTime
+    endTime: 0,
+    // ⭐ 游戏总时长（秒）
+    totalTime: 30,
     // 是否中奖
     isWinner: false,
     // 中奖信息
@@ -22,9 +27,6 @@ export const useGameStore = defineStore('game', {
   }),
 
   getters: {
-    // 场次ID
-    roundId: (state) => state.currentRound?.ID,
-    
     // 场次名称
     roundName: (state) => state.currentRound?.roundName || '',
     
@@ -44,7 +46,14 @@ export const useGameStore = defineStore('game', {
     isWaiting: (state) => state.gameStatus === 'waiting',
     
     // 是否已结束
-    isFinished: (state) => state.gameStatus === 'finished'
+    isFinished: (state) => state.gameStatus === 'finished',
+    
+    // ⭐ 剩余时间（秒）- 改为 getter，自动计算
+    remainTime: (state) => {
+      if (!state.endTime || state.gameStatus !== 'playing') return 0
+      const remain = Math.ceil((state.endTime - Date.now()) / 1000)
+      return Math.max(0, remain)
+    }
   },
 
   actions: {
@@ -54,8 +63,20 @@ export const useGameStore = defineStore('game', {
     setCurrentRound(round) {
       this.currentRound = round
       if (round) {
-        this.remainTime = round.duration || 30
+        this.roundId = round.ID || round.id
+        this.totalTime = round.duration || 30
+        // 持久化
+        setSession('game_round', round)
+        setSession('game_roundId', this.roundId)
       }
+    },
+
+    /**
+     * 设置场次ID
+     */
+    setRoundId(id) {
+      this.roundId = id
+      setSession('game_roundId', id)
     },
 
     /**
@@ -63,17 +84,45 @@ export const useGameStore = defineStore('game', {
      */
     setGameStatus(status) {
       this.gameStatus = status
+      setSession('game_status', status)
+    },
+
+    /**
+     * ⭐ 设置结束时间
+     */
+    setEndTime(endTime) {
+      this.endTime = endTime
+      setSession('game_endTime', endTime)
+    },
+
+    /**
+     * ⭐ 设置总时长
+     */
+    setTotalTime(totalTime) {
+      this.totalTime = totalTime
+      setSession('game_totalTime', totalTime)
     },
 
     /**
      * 开始游戏
      */
-    startGame() {
+    startGame(endTime, totalTime) {
       this.gameStatus = 'playing'
       this.shakeCount = 0
       this.myRank = 0
       this.isWinner = false
       this.winInfo = null
+      
+      if (endTime) {
+        this.endTime = endTime
+        setSession('game_endTime', endTime)
+      }
+      if (totalTime) {
+        this.totalTime = totalTime
+        setSession('game_totalTime', totalTime)
+      }
+      
+      setSession('game_status', 'playing')
     },
 
     /**
@@ -81,6 +130,11 @@ export const useGameStore = defineStore('game', {
      */
     endGame() {
       this.gameStatus = 'finished'
+      this.endTime = 0
+      
+      // 清除持久化的游戏状态
+      removeSession('game_status')
+      removeSession('game_endTime')
     },
 
     /**
@@ -112,13 +166,6 @@ export const useGameStore = defineStore('game', {
     },
 
     /**
-     * 更新剩余时间
-     */
-    updateRemainTime(time) {
-      this.remainTime = time
-    },
-
-    /**
      * 设置中奖信息
      */
     setWinInfo(isWinner, info = null) {
@@ -127,17 +174,63 @@ export const useGameStore = defineStore('game', {
     },
 
     /**
+     * ⭐ 从 sessionStorage 恢复状态（页面刷新时调用）
+     */
+    restoreFromSession() {
+      const status = getSession('game_status')
+      const endTime = getSession('game_endTime')
+      const totalTime = getSession('game_totalTime')
+      const round = getSession('game_round')
+      const roundId = getSession('game_roundId')
+      
+      if (status === 'playing' && endTime) {
+        // 检查游戏是否已结束
+        const remain = Math.ceil((endTime - Date.now()) / 1000)
+        if (remain > 0) {
+          // 游戏还在进行中，恢复状态
+          this.gameStatus = status
+          this.endTime = endTime
+          this.totalTime = totalTime || 30
+          this.currentRound = round
+          this.roundId = roundId
+          return true
+        } else {
+          // 游戏已结束，清除状态
+          this.clearSession()
+          return false
+        }
+      }
+      return false
+    },
+
+    /**
+     * ⭐ 清除 session 存储
+     */
+    clearSession() {
+      removeSession('game_status')
+      removeSession('game_endTime')
+      removeSession('game_totalTime')
+      removeSession('game_round')
+      removeSession('game_roundId')
+    },
+
+    /**
      * 重置游戏状态
      */
     resetGame() {
       this.currentRound = null
+      this.roundId = null
       this.gameStatus = 'idle'
       this.shakeCount = 0
       this.ranking = []
       this.myRank = 0
-      this.remainTime = 0
+      this.endTime = 0
+      this.totalTime = 30
       this.isWinner = false
       this.winInfo = null
+      
+      // 清除持久化
+      this.clearSession()
     }
   }
 })

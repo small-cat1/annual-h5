@@ -55,13 +55,31 @@
         <!-- 游戏进行中 -->
         <div v-else-if="gameStatus === 'playing'" class="status-box playing">
           <div class="countdown">
-            <CountDown
-              ref="countdownRef"
-              :time="remainTime"
-              large
-              @change="onTimeChange"
-              @finish="onGameEnd"
-            />
+            <div class="countdown-circle">
+              <svg viewBox="0 0 100 100">
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="45"
+                  fill="none"
+                  stroke="#eee"
+                  stroke-width="8"
+                />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="45"
+                  fill="none"
+                  stroke="#ff5722"
+                  stroke-width="8"
+                  stroke-linecap="round"
+                  :stroke-dasharray="circumference"
+                  :stroke-dashoffset="dashOffset"
+                  transform="rotate(-90 50 50)"
+                />
+              </svg>
+              <div class="countdown-number">{{ remainTime }}</div>
+            </div>
           </div>
 
           <div class="score-display">
@@ -112,7 +130,6 @@
 </template>
 
 <script setup>
-import CountDown from "@/components/common/CountDown.vue";
 import DebugPanel from "@/components/common/DebugPanel.vue";
 import { useGameStore, useUserStore, useWebSocketStore } from "@/store";
 import { formatPrizeLevel } from "@/utils/format";
@@ -125,15 +142,38 @@ const userStore = useUserStore();
 const gameStore = useGameStore();
 const wsStore = useWebSocketStore();
 
-const countdownRef = ref(null);
 const isShaking = ref(false);
 
 let shakeDetector = null;
 let scoreTimer = null;
 let shakeTimer = null;
-let rankingUnsubscribe = null;
+let timeUpdateTimer = null;
 
-// ============ 调试相关（独立封装） ============
+// WebSocket 订阅
+let rankingUnsubscribe = null;
+let gameStartUnsubscribe = null;
+let gameStopUnsubscribe = null;
+
+// ============ 核心状态 ============
+const endTime = ref(0); // 游戏结束时间戳（毫秒）
+const currentTime = ref(Date.now()); // 当前时间（触发 computed 更新）
+const totalTime = ref(30); // 游戏总时长（秒）
+
+// ⭐ 剩余时间（自动计算）
+const remainTime = computed(() => {
+  if (!endTime.value || gameStatus.value !== "playing") return 0;
+  const remain = Math.ceil((endTime.value - currentTime.value) / 1000);
+  return Math.max(0, remain);
+});
+
+// 倒计时圆环
+const circumference = 2 * Math.PI * 45;
+const dashOffset = computed(() => {
+  const progress = remainTime.value / totalTime.value;
+  return circumference * (1 - progress);
+});
+
+// ============ 调试相关 ============
 const debugLogs = ref([]);
 const debugStates = reactive({
   "📱 权限": {},
@@ -160,15 +200,13 @@ const debug = {
   },
 };
 
-// 传递给 DebugPanel 的 props
 const debugProps = computed(() => ({
-  enabled: true, // 上线时改为 false 或删除组件
+  enabled: true, // 上线时改为 false
   logs: debugLogs.value,
   states: debugStates,
   actions: debugActions.value,
 }));
 
-// 注册调试按钮
 debugActions.value = [
   {
     label: "模拟摇动",
@@ -242,11 +280,53 @@ const handlePermissionClick = async () => {
   }
 };
 
+// ============ 时间更新 ============
+
+// 启动时间更新器
+const startTimeUpdater = () => {
+  if (timeUpdateTimer) return;
+
+  debug.log("启动时间更新器", "info");
+  timeUpdateTimer = setInterval(() => {
+    currentTime.value = Date.now();
+    debug.setState("🎮 游戏", "剩余时间", remainTime.value + "s");
+
+    // 检查游戏是否结束
+    if (remainTime.value <= 0) {
+      debug.log("倒计时结束", "info");
+      stopTimeUpdater();
+      onGameEnd();
+    }
+  }, 1000);
+};
+
+// 停止时间更新器
+const stopTimeUpdater = () => {
+  if (timeUpdateTimer) {
+    clearInterval(timeUpdateTimer);
+    timeUpdateTimer = null;
+  }
+};
+
+// ⭐ 监听页面可见性变化（手机黑屏恢复）
+const handleVisibilityChange = () => {
+  if (!document.hidden && gameStatus.value === "playing") {
+    debug.log("页面恢复可见，同步时间", "info");
+    currentTime.value = Date.now();
+    debug.setState("🎮 游戏", "剩余时间", remainTime.value + "s");
+
+    // 如果游戏已结束
+    if (remainTime.value <= 0) {
+      debug.log("游戏已结束（恢复时检测）", "info");
+      onGameEnd();
+    }
+  }
+};
+
 // ============ 业务逻辑 ============
 const currentRound = computed(() => gameStore.currentRound);
 const gameStatus = computed(() => gameStore.gameStatus);
 const shakeCount = computed(() => gameStore.shakeCount);
-const remainTime = computed(() => gameStore.remainTime);
 const ranking = computed(() => gameStore.ranking);
 const myRank = computed(() => gameStore.myRank);
 
@@ -301,7 +381,80 @@ const startScoreTimer = () => {
   scoreTimer = setInterval(sendScoreToServer, 500);
 };
 
-const subscribeRankingUpdate = () => {
+const stopScoreTimer = () => {
+  if (scoreTimer) {
+    clearInterval(scoreTimer);
+    scoreTimer = null;
+  }
+};
+
+// ⭐ 处理游戏开始（WebSocket 广播）
+const handleGameStart = (data) => {
+  debug.log(`收到游戏开始广播: endTime=${data.endTime}`, "success");
+
+  if (data.endTime) {
+    endTime.value = data.endTime;
+    totalTime.value = data.duration || 30;
+    currentTime.value = Date.now();
+
+    debug.setState(
+      "🎮 游戏",
+      "endTime",
+      new Date(data.endTime).toLocaleTimeString()
+    );
+    debug.setState("🎮 游戏", "剩余时间", remainTime.value + "s");
+
+    // 更新 store 状态（会自动持久化到 sessionStorage）
+    if (data.round) {
+      gameStore.setCurrentRound(data.round);
+    }
+    if (data.roundId) {
+      gameStore.setRoundId(data.roundId);
+    }
+    gameStore.startGame(data.endTime, data.duration || 30);
+
+    // 启动各种定时器
+    startTimeUpdater();
+    startScoreTimer();
+
+    // 检查权限并初始化摇动检测
+    const status = checkPermissionStatus();
+    if (status === "granted") {
+      initShake();
+    } else if (status === "unknown" && needsPermission()) {
+      showPermissionModal.value = true;
+    }
+  }
+};
+
+// ⭐ 处理游戏结束（WebSocket 广播）
+const handleGameStop = (data) => {
+  debug.log("收到游戏结束广播", "info");
+  onGameEnd();
+};
+
+// 游戏结束处理
+const onGameEnd = () => {
+  debug.log("游戏结束", "info");
+
+  // 最后上报一次分数
+  sendScoreToServer();
+
+  // 停止定时器
+  stopTimeUpdater();
+  stopScoreTimer();
+
+  // 更新状态
+  gameStore.endGame();
+
+  // 跳转结果页
+  router.replace("/shake/result");
+};
+
+// 监听排名更新
+const subscribeWebSocket = () => {
+  debug.log("订阅 WebSocket 事件", "info");
+
   rankingUnsubscribe = wsStore.subscribe("ranking_update", (data) => {
     if (data.roundId !== gameStore.roundId) return;
     gameStore.updateRanking(data.ranking || []);
@@ -311,15 +464,27 @@ const subscribeRankingUpdate = () => {
       debug.setState("🎮 游戏", "我的排名", `第${myRankItem.rank}名`);
     }
   });
+
+  // ⭐ 订阅游戏开始事件
+  gameStartUnsubscribe = wsStore.subscribe("game_start", handleGameStart);
+
+  // ⭐ 订阅游戏结束事件
+  gameStopUnsubscribe = wsStore.subscribe("game_stop", handleGameStop);
 };
 
-const onTimeChange = (time) => gameStore.updateRemainTime(time);
-
-const onGameEnd = () => {
-  debug.log("游戏结束", "info");
-  sendScoreToServer();
-  gameStore.endGame();
-  router.replace("/shake/result");
+const unsubscribeAll = () => {
+  if (rankingUnsubscribe) {
+    rankingUnsubscribe();
+    rankingUnsubscribe = null;
+  }
+  if (gameStartUnsubscribe) {
+    gameStartUnsubscribe();
+    gameStartUnsubscribe = null;
+  }
+  if (gameStopUnsubscribe) {
+    gameStopUnsubscribe();
+    gameStopUnsubscribe = null;
+  }
 };
 
 // ============ 生命周期 ============
@@ -335,26 +500,65 @@ onMounted(async () => {
   debug.setState("🎮 游戏", "roundId", gameStore.roundId || "无");
   debug.setState("🎮 游戏", "摇动次数", 0);
 
+  // 添加页面可见性监听
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+
+  // 检查权限状态
   const status = checkPermissionStatus();
   permissionStatus.value = status;
   debug.setState("📱 权限", "状态", status);
 
-  if (gameStatus.value === "playing") {
+  // 订阅 WebSocket
+  subscribeWebSocket();
+
+  // ⭐ 尝试从 sessionStorage 恢复游戏状态（页面刷新）
+  const restored = gameStore.restoreFromSession();
+  if (restored) {
+    debug.log("从 session 恢复游戏状态", "info");
+
+    endTime.value = gameStore.endTime;
+    totalTime.value = gameStore.totalTime || 30;
+    currentTime.value = Date.now();
+
+    debug.log(
+      `恢复 endTime: ${gameStore.endTime}, 剩余: ${remainTime.value}s`,
+      "info"
+    );
+    debug.setState(
+      "🎮 游戏",
+      "endTime",
+      new Date(gameStore.endTime).toLocaleTimeString()
+    );
+    debug.setState("🎮 游戏", "剩余时间", remainTime.value + "s");
+    debug.setState("🎮 游戏", "roundId", gameStore.roundId || "无");
+
+    // 检查游戏是否已结束
+    if (remainTime.value <= 0) {
+      debug.log("游戏已结束（刷新时检测）", "info");
+      onGameEnd();
+      return;
+    }
+
+    // 启动定时器
+    startTimeUpdater();
+    startScoreTimer();
+
+    // 初始化摇动检测
     if (status === "granted") {
-      await initShake();
+      initShake();
     } else if (status === "unknown" && needsPermission()) {
       showPermissionModal.value = true;
     }
-    startScoreTimer();
   }
-
-  subscribeRankingUpdate();
 });
 
 onUnmounted(() => {
-  if (scoreTimer) clearInterval(scoreTimer);
+  debug.log("页面卸载", "info");
+  unsubscribeAll();
+  stopTimeUpdater();
+  stopScoreTimer();
   if (shakeTimer) clearTimeout(shakeTimer);
-  if (rankingUnsubscribe) rankingUnsubscribe();
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
   destroyShakeDetector();
 });
 </script>
@@ -471,7 +675,34 @@ onUnmounted(() => {
 .status-box.playing {
   .countdown {
     margin-bottom: 24px;
+
+    .countdown-circle {
+      position: relative;
+      width: 100px;
+      height: 100px;
+      margin: 0 auto;
+
+      svg {
+        width: 100%;
+        height: 100%;
+      }
+
+      circle {
+        transition: stroke-dashoffset 0.3s ease;
+      }
+
+      .countdown-number {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 32px;
+        font-weight: bold;
+        color: #ff5722;
+      }
+    }
   }
+
   .score-display {
     margin-bottom: 24px;
     .label {
