@@ -196,6 +196,9 @@ const defaultAvatar = "https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg";
 // ⭐ 新增：游戏状态
 const hasActiveGame = ref(false);
 const activeRound = ref(null);
+// WebSocket 订阅取消函数
+let gameStartUnsubscribe = null;
+let gameStopUnsubscribe = null;
 // 是否已签到（使用 store 中的 getter）
 const isCheckedIn = computed(() => userStore.isCheckedIn);
 
