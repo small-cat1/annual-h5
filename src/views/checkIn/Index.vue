@@ -128,9 +128,6 @@ onMounted(async () => {
     }
   }
 
-  // 获取用户信息（包含签到状态）
-  await userStore.fetchUserInfo(activityStore.activityId);
-
   // 自动填充（用上次的签到信息）
   const checkInInfo = userStore.checkInInfo;
   if (checkInInfo && !checkInInfo.isCheckedIn) {

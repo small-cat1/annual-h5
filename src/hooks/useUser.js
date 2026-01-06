@@ -15,17 +15,6 @@ export function useUser() {
   const department = computed(() => userStore.userInfo?.department)
   const employeeNo = computed(() => userStore.userInfo?.employeeNo)
 
-  /**
-   * 刷新用户信息
-   */
-  const refreshUserInfo = async () => {
-    loading.value = true
-    try {
-      await userStore.fetchUserInfo()
-    } finally {
-      loading.value = false
-    }
-  }
 
   /**
    * 更新用户信息
@@ -44,7 +33,6 @@ export function useUser() {
     department,
     employeeNo,
     loading,
-    refreshUserInfo,
     updateUser
   }
 }

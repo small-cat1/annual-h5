@@ -115,7 +115,6 @@ onMounted(async () => {
       await activityStore.init(activityId);
     }
   }
-  await userStore.fetchUserInfo(activityStore.activityId);
 });
 </script>
 

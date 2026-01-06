@@ -33,6 +33,27 @@ export function setupRouterGuards(router) {
       return;
     }
 
+    // ========== 新增：每次路由切换都刷新用户信息 ==========
+    if (activityStore.activityId) {
+      try {
+        await userStore.fetchUserInfo(activityStore.activityId);
+      } catch (e) {
+        // token 失效，清除登录状态，重新授权
+        if (e?.response?.status === 401) {
+          userStore.logout();
+          if (isWechat()) {
+            const redirectUri =
+              window.location.origin +
+              "/auth/callback?redirect=" +
+              encodeURIComponent(to.path);
+            redirectToAuth(redirectUri);
+            return;
+          }
+          next({ path: "/auth/login", query: { redirect: to.path } });
+          return;
+        }
+      }
+    }
     // 已登录，直接放行
     next();
   });

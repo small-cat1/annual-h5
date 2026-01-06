@@ -302,12 +302,9 @@ const init = async () => {
   }
 
   // 初始化活动信息
-  const success = await activityStore.init(activityId);
+  await activityStore.init(activityId);
 
-  // 如果活动正常且已登录，刷新用户信息
-  if (success && activityStore.activityStatus === 1 && userStore.isLoggedIn) {
-    await userStore.fetchUserInfo(activityStore.activityId);
-  }
+
 
   loading.value = false;
 };
