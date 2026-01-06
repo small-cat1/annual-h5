@@ -42,10 +42,10 @@ export const useUserStore = defineStore('user', {
 
   actions: {
     // 微信登录
-    async wechatLogin(code) {
+    async wechatLogin(code,activityId) {
       this.isLoading = true
       try {
-        const res = await wechatLogin({ code })
+        const res = await wechatLogin({ code, activityId  })
         const { token, user } = res.data
         
         this.token = token
