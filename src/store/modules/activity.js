@@ -1,10 +1,9 @@
-// store/modules/activity.js
 import { getActivityDetail } from "@/api/activity";
 import { defineStore } from "pinia";
 
 export const useActivityStore = defineStore("activity", {
   state: () => ({
-    activityId: null,
+    activityId: Number(localStorage.getItem("activityId")) || null,
     config: null,
     loadError: false,
     isReady: false,
@@ -58,6 +57,15 @@ export const useActivityStore = defineStore("activity", {
         this.loadError = true;
         return false;
       }
+    },
+    // ⭐ 新增：仅恢复 activityId（不请求详情）
+    restoreFromStorage() {
+      const stored = localStorage.getItem("activityId");
+      if (stored) {
+        this.activityId = Number(stored);
+        return true;
+      }
+      return false;
     },
   },
 });
