@@ -143,7 +143,7 @@ export function formatAuditStatus(status) {
   return statusMap[status] || { text: "未知", color: "#999" };
 }
 
-const path = import.meta.env.VITE_FILE_API;
+const path = import.meta.env.VITE_FILE_API + "/api";
 export const getUrl = (url) => {
   if (url && url.slice(0, 4) !== "http") {
     if (path === "/") {
