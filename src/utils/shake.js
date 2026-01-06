@@ -1,173 +1,181 @@
-// 摇一摇检测工具
+/**
+ * 摇一摇检测器
+ * 支持 iOS 13+ 权限请求
+ */
+
+let shakeInstance = null;
 
 class ShakeDetector {
   constructor(options = {}) {
-    this.threshold = options.threshold || 15  // 加速度阈值
-    this.timeout = options.timeout || 300     // 两次摇动间隔（毫秒）
-    this.callback = options.onShake || (() => {})
-    
-    this.lastTime = 0
-    this.lastX = 0
-    this.lastY = 0
-    this.lastZ = 0
-    this.shakeCount = 0
-    this.isListening = false
-    this.hasPermission = false
-    
-    this.handleMotion = this.handleMotion.bind(this)
+    this.threshold = options.threshold || 12; // 加速度阈值
+    this.timeout = options.timeout || 300; // 两次摇动的最小间隔(ms)
+    this.onShake = options.onShake || (() => {});
+    this.onDebug = options.onDebug || (() => {}); // 调试回调
+
+    this.shakeCount = 0;
+    this.lastShakeTime = 0;
+    this.lastX = null;
+    this.lastY = null;
+    this.lastZ = null;
+    this.isListening = false;
+
+    this.handleMotion = this.handleMotion.bind(this);
   }
 
-  /**
-   * 请求权限（iOS 13+需要）
-   */
+  // 检查是否支持 DeviceMotion
+  isSupported() {
+    return "DeviceMotionEvent" in window;
+  }
+
+  // 检查是否需要请求权限 (iOS 13+)
+  needsPermission() {
+    return (
+      typeof DeviceMotionEvent !== "undefined" &&
+      typeof DeviceMotionEvent.requestPermission === "function"
+    );
+  }
+
+  // 请求权限
   async requestPermission() {
+    if (!this.needsPermission()) {
+      this.onDebug("不需要请求权限 (非iOS或低版本)", "info");
+      return "granted";
+    }
+
+    try {
+      this.onDebug("正在请求 DeviceMotion 权限...", "info");
+      const permission = await DeviceMotionEvent.requestPermission();
+      this.onDebug(
+        `权限请求结果: ${permission}`,
+        permission === "granted" ? "success" : "error"
+      );
+      return permission;
+    } catch (error) {
+      this.onDebug(`权限请求失败: ${error.message}`, "error");
+      throw error;
+    }
+  }
+
+  // 启动监听
+  async start() {
+    if (!this.isSupported()) {
+      const msg = "当前设备不支持 DeviceMotion API";
+      this.onDebug(msg, "error");
+      throw new Error(msg);
+    }
+
     // iOS 13+ 需要请求权限
-    if (typeof DeviceMotionEvent !== 'undefined' && 
-        typeof DeviceMotionEvent.requestPermission === 'function') {
-      try {
-        const permission = await DeviceMotionEvent.requestPermission()
-        this.hasPermission = permission === 'granted'
-        return this.hasPermission
-      } catch (e) {
-        console.error('请求设备运动权限失败:', e)
-        return false
+    if (this.needsPermission()) {
+      const permission = await this.requestPermission();
+      if (permission !== "granted") {
+        const msg = "用户拒绝了运动传感器权限";
+        this.onDebug(msg, "error");
+        throw new Error(msg);
       }
     }
-    
-    // 其他设备默认有权限
-    this.hasPermission = true
-    return true
+
+    this.shakeCount = 0;
+    this.isListening = true;
+    window.addEventListener("devicemotion", this.handleMotion, true);
+    this.onDebug("开始监听 devicemotion 事件", "success");
+
+    return true;
   }
 
-  /**
-   * 检查设备是否支持
-   */
-  isSupported() {
-    return 'DeviceMotionEvent' in window
-  }
-
-  /**
-   * 开始监听
-   */
-  async start() {
-    if (this.isListening) return
-
-    if (!this.isSupported()) {
-      console.warn('设备不支持运动检测')
-      return false
-    }
-
-    // 先请求权限
-    const hasPermission = await this.requestPermission()
-    if (!hasPermission) {
-      console.warn('未获得设备运动权限')
-      return false
-    }
-
-    this.isListening = true
-    this.shakeCount = 0
-    window.addEventListener('devicemotion', this.handleMotion, true)
-    
-    return true
-  }
-
-  /**
-   * 停止监听
-   */
+  // 停止监听
   stop() {
-    if (!this.isListening) return
-
-    this.isListening = false
-    window.removeEventListener('devicemotion', this.handleMotion, true)
+    this.isListening = false;
+    window.removeEventListener("devicemotion", this.handleMotion, true);
+    this.onDebug("停止监听 devicemotion 事件", "info");
   }
 
-  /**
-   * 处理设备运动事件
-   */
+  // 重置计数
+  reset() {
+    this.shakeCount = 0;
+    this.lastX = null;
+    this.lastY = null;
+    this.lastZ = null;
+    this.onDebug("计数已重置", "info");
+  }
+
+  // 处理运动事件
   handleMotion(event) {
-    const acceleration = event.accelerationIncludingGravity
-    
-    if (!acceleration) return
+    const acceleration =
+      event.accelerationIncludingGravity || event.acceleration;
 
-    const currentTime = Date.now()
-    
-    // 控制检测频率
-    if ((currentTime - this.lastTime) < 100) return
-    
-    const diffTime = currentTime - this.lastTime
-    this.lastTime = currentTime
-
-    const x = acceleration.x || 0
-    const y = acceleration.y || 0
-    const z = acceleration.z || 0
-
-    const diffX = Math.abs(x - this.lastX)
-    const diffY = Math.abs(y - this.lastY)
-    const diffZ = Math.abs(z - this.lastZ)
-
-    // 计算速度
-    const speed = (diffX + diffY + diffZ) / diffTime * 10000
-
-    if (speed > this.threshold) {
-      this.shakeCount++
-      this.callback(this.shakeCount)
+    if (!acceleration) {
+      this.onDebug("无法获取加速度数据", "warn");
+      return;
     }
 
-    this.lastX = x
-    this.lastY = y
-    this.lastZ = z
+    const { x, y, z } = acceleration;
+
+    // 首次记录
+    if (this.lastX === null) {
+      this.lastX = x;
+      this.lastY = y;
+      this.lastZ = z;
+      return;
+    }
+
+    // 计算加速度变化
+    const deltaX = Math.abs(x - this.lastX);
+    const deltaY = Math.abs(y - this.lastY);
+    const deltaZ = Math.abs(z - this.lastZ);
+
+    // 计算总变化量
+    const delta = Math.sqrt(
+      deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ
+    );
+
+    // 更新上次的值
+    this.lastX = x;
+    this.lastY = y;
+    this.lastZ = z;
+
+    // 检测是否超过阈值
+    if (delta > this.threshold) {
+      const now = Date.now();
+
+      // 防抖：两次摇动间隔太短则忽略
+      if (now - this.lastShakeTime > this.timeout) {
+        this.shakeCount++;
+        this.lastShakeTime = now;
+
+        this.onDebug(
+          `检测到摇动! delta=${delta.toFixed(2)}, 次数=${this.shakeCount}`,
+          "success"
+        );
+        this.onShake(this.shakeCount);
+      }
+    }
   }
 
-  /**
-   * 获取摇动次数
-   */
+  // 获取当前计数
   getCount() {
-    return this.shakeCount
-  }
-
-  /**
-   * 重置计数
-   */
-  resetCount() {
-    this.shakeCount = 0
-  }
-
-  /**
-   * 设置回调
-   */
-  onShake(callback) {
-    this.callback = callback
-  }
-
-  /**
-   * 设置阈值
-   */
-  setThreshold(value) {
-    this.threshold = value
+    return this.shakeCount;
   }
 }
 
-// 创建单例
-let shakeDetector = null
-
-/**
- * 获取摇一摇检测器实例
- */
-export function getShakeDetector(options) {
-  if (!shakeDetector) {
-    shakeDetector = new ShakeDetector(options)
+// 获取单例
+export function getShakeDetector(options = {}) {
+  if (!shakeInstance) {
+    shakeInstance = new ShakeDetector(options);
+  } else {
+    // 更新回调
+    if (options.onShake) shakeInstance.onShake = options.onShake;
+    if (options.onDebug) shakeInstance.onDebug = options.onDebug;
+    if (options.threshold) shakeInstance.threshold = options.threshold;
   }
-  return shakeDetector
+  return shakeInstance;
 }
 
-/**
- * 销毁实例
- */
+// 销毁单例
 export function destroyShakeDetector() {
-  if (shakeDetector) {
-    shakeDetector.stop()
-    shakeDetector = null
+  if (shakeInstance) {
+    shakeInstance.stop();
+    shakeInstance = null;
   }
 }
 
-export default ShakeDetector
+export default ShakeDetector;

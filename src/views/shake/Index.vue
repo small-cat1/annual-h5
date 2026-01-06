@@ -9,6 +9,35 @@
         <span>{{ debugCollapsed ? '展开' : '收起' }}</span>
       </div>
       <div v-show="!debugCollapsed" class="debug-content">
+        <!-- 权限状态 - 重要！ -->
+        <div class="debug-section permission-section">
+          <div class="debug-title">⚠️ 传感器权限</div>
+          <div class="debug-row">
+            <span>权限状态:</span>
+            <span :class="permissionStatus === 'granted' ? 'status-ok' : 'status-error'">
+              {{ permissionStatusText }}
+            </span>
+          </div>
+          <div class="debug-row">
+            <span>设备支持:</span>
+            <span :class="deviceSupported ? 'status-ok' : 'status-error'">
+              {{ deviceSupported ? '✅ 支持' : '❌ 不支持' }}
+            </span>
+          </div>
+          <div class="debug-row">
+            <span>需要授权:</span>
+            <span>{{ needsPermission ? '是 (iOS 13+)' : '否' }}</span>
+          </div>
+          <!-- iOS 需要用户点击按钮请求权限 -->
+          <button 
+            v-if="permissionStatus !== 'granted'" 
+            class="permission-btn"
+            @click="requestMotionPermission"
+          >
+            📱 点击授权传感器权限
+          </button>
+        </div>
+
         <div class="debug-section">
           <div class="debug-title">📱 摇动检测</div>
           <div class="debug-row">
@@ -24,6 +53,39 @@
           <div class="debug-row">
             <span>最后摇动:</span>
             <span>{{ lastShakeTime || '-' }}</span>
+          </div>
+          <div class="debug-row">
+            <span>阈值设置:</span>
+            <span>{{ shakeThreshold }}</span>
+          </div>
+        </div>
+
+        <!-- 实时加速度数据 -->
+        <div class="debug-section">
+          <div class="debug-title">📊 实时加速度 (调试用)</div>
+          <div class="accel-display">
+            <div class="accel-item">
+              <span class="label">X:</span>
+              <span class="value">{{ accelData.x }}</span>
+            </div>
+            <div class="accel-item">
+              <span class="label">Y:</span>
+              <span class="value">{{ accelData.y }}</span>
+            </div>
+            <div class="accel-item">
+              <span class="label">Z:</span>
+              <span class="value">{{ accelData.z }}</span>
+            </div>
+            <div class="accel-item">
+              <span class="label">Delta:</span>
+              <span class="value" :class="{ highlight: accelData.delta > shakeThreshold }">
+                {{ accelData.delta }}
+              </span>
+            </div>
+          </div>
+          <div class="debug-row">
+            <span>事件触发次数:</span>
+            <span class="value">{{ motionEventCount }}</span>
           </div>
         </div>
 
@@ -53,13 +115,6 @@
         </div>
 
         <div class="debug-section">
-          <div class="debug-title">📥 最近收到的排名</div>
-          <div class="debug-data">
-            <pre>{{ lastRankingData ? JSON.stringify(lastRankingData, null, 2) : '暂无' }}</pre>
-          </div>
-        </div>
-
-        <div class="debug-section">
           <div class="debug-title">📋 日志 (最近10条)</div>
           <div class="debug-logs">
             <div v-for="(log, index) in debugLogs" :key="index" class="log-item" :class="log.type">
@@ -72,12 +127,18 @@
         <div class="debug-actions">
           <button @click="testShake">模拟摇动</button>
           <button @click="testSend">测试发送</button>
+          <button @click="restartDetector">重启检测</button>
           <button @click="clearLogs">清空日志</button>
         </div>
       </div>
     </div>
 
     <div class="shake-content">
+      <!-- 权限提示横幅 -->
+      <div v-if="permissionStatus !== 'granted' && !debugCollapsed" class="permission-banner">
+        <p>⚠️ 请先在调试面板中授权传感器权限</p>
+      </div>
+
       <!-- 无场次 -->
       <div v-if="!currentRound" class="no-round">
         <van-empty description="暂无进行中的游戏" />
@@ -179,7 +240,6 @@ import {
   useWebSocketStore,
 } from "@/store";
 import { formatPrizeLevel } from "@/utils/format";
-import { destroyShakeDetector, getShakeDetector } from "@/utils/shake";
 import { computed, onMounted, onUnmounted, ref, reactive } from "vue";
 import { useRouter } from "vue-router";
 
@@ -203,8 +263,36 @@ const sendCount = ref(0);
 const lastShakeTime = ref('');
 const lastSendTime = ref('');
 const lastSendData = ref(null);
-const lastRankingData = ref(null);
 const debugLogs = ref([]);
+
+// 权限相关
+const permissionStatus = ref('unknown'); // unknown, granted, denied, unsupported
+const deviceSupported = ref(false);
+const needsPermission = ref(false);
+const shakeThreshold = ref(12);
+
+// 加速度数据（实时显示）
+const accelData = reactive({
+  x: '0.00',
+  y: '0.00',
+  z: '0.00',
+  delta: '0.00'
+});
+const motionEventCount = ref(0);
+
+// 上一次的加速度值（用于计算delta）
+let lastAccel = { x: null, y: null, z: null };
+
+// 权限状态文本
+const permissionStatusText = computed(() => {
+  const map = {
+    unknown: '❓ 未知',
+    granted: '✅ 已授权',
+    denied: '❌ 已拒绝',
+    unsupported: '❌ 不支持'
+  };
+  return map[permissionStatus.value] || permissionStatus.value;
+});
 
 // 添加调试日志
 const addLog = (msg, type = 'info') => {
@@ -214,11 +302,11 @@ const addLog = (msg, type = 'info') => {
   if (debugLogs.value.length > 10) {
     debugLogs.value.pop();
   }
+  console.log(`[Shake Debug] ${time} [${type}] ${msg}`);
 };
 
 // WebSocket 连接状态
 const wsConnected = computed(() => {
-  // 根据你的 wsStore 实现调整
   return wsStore.connected || wsStore.isConnected || false;
 });
 
@@ -243,6 +331,61 @@ const testSend = () => {
   sendScoreToServer();
 };
 
+// ============ 权限和传感器相关 ============
+
+// 检查设备支持
+const checkDeviceSupport = () => {
+  deviceSupported.value = 'DeviceMotionEvent' in window;
+  needsPermission.value = typeof DeviceMotionEvent !== 'undefined' && 
+                          typeof DeviceMotionEvent.requestPermission === 'function';
+  
+  addLog(`设备支持: ${deviceSupported.value}, 需要权限: ${needsPermission.value}`, 'info');
+  
+  if (!deviceSupported.value) {
+    permissionStatus.value = 'unsupported';
+  }
+};
+
+// 请求传感器权限（iOS 13+ 必须由用户点击触发）
+const requestMotionPermission = async () => {
+  addLog('用户点击请求权限按钮', 'info');
+  
+  if (!deviceSupported.value) {
+    addLog('设备不支持 DeviceMotion', 'error');
+    permissionStatus.value = 'unsupported';
+    return;
+  }
+  
+  // 非 iOS 或低版本，直接授权
+  if (!needsPermission.value) {
+    addLog('无需请求权限，直接启动', 'success');
+    permissionStatus.value = 'granted';
+    await initShake();
+    return;
+  }
+  
+  // iOS 13+ 请求权限
+  try {
+    const permission = await DeviceMotionEvent.requestPermission();
+    addLog(`权限请求结果: ${permission}`, permission === 'granted' ? 'success' : 'error');
+    permissionStatus.value = permission;
+    
+    if (permission === 'granted') {
+      await initShake();
+    }
+  } catch (error) {
+    addLog(`权限请求异常: ${error.message}`, 'error');
+    permissionStatus.value = 'denied';
+  }
+};
+
+// 重启检测器
+const restartDetector = async () => {
+  addLog('重启摇动检测器...', 'info');
+  stopShakeDetector();
+  await initShake();
+};
+
 // ============ 原有逻辑 ============
 
 // 计算属性
@@ -253,26 +396,89 @@ const remainTime = computed(() => gameStore.remainTime);
 const ranking = computed(() => gameStore.ranking);
 const myRank = computed(() => gameStore.myRank);
 
+// 处理 devicemotion 事件
+const handleDeviceMotion = (event) => {
+  motionEventCount.value++;
+  
+  const acceleration = event.accelerationIncludingGravity || event.acceleration;
+  
+  if (!acceleration) {
+    if (motionEventCount.value <= 3) {
+      addLog('无法获取加速度数据', 'warn');
+    }
+    return;
+  }
+  
+  const { x, y, z } = acceleration;
+  
+  // 更新显示
+  accelData.x = (x || 0).toFixed(2);
+  accelData.y = (y || 0).toFixed(2);
+  accelData.z = (z || 0).toFixed(2);
+  
+  // 计算 delta
+  if (lastAccel.x !== null) {
+    const deltaX = Math.abs(x - lastAccel.x);
+    const deltaY = Math.abs(y - lastAccel.y);
+    const deltaZ = Math.abs(z - lastAccel.z);
+    const delta = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+    
+    accelData.delta = delta.toFixed(2);
+    
+    // 检测摇动
+    if (delta > shakeThreshold.value) {
+      const now = Date.now();
+      if (!window._lastShakeTime || now - window._lastShakeTime > 300) {
+        window._lastShakeTime = now;
+        
+        const newCount = gameStore.shakeCount + 1;
+        gameStore.setShakeCount(newCount);
+        triggerShakeAnimation();
+        lastShakeTime.value = new Date().toLocaleTimeString();
+        
+        addLog(`摇动! delta=${delta.toFixed(2)}, 次数=${newCount}`, 'success');
+      }
+    }
+  }
+  
+  lastAccel.x = x;
+  lastAccel.y = y;
+  lastAccel.z = z;
+};
+
 // 初始化摇一摇
 const initShake = async () => {
   addLog('正在初始化摇动检测器...', 'info');
+  
   try {
-    shakeDetector = getShakeDetector({
-      threshold: 12,
-      onShake: (count) => {
-        addLog(`检测到摇动! 次数: ${count}`, 'success');
-        gameStore.setShakeCount(count);
-        triggerShakeAnimation();
-        lastShakeTime.value = new Date().toLocaleTimeString();
-      },
-    });
-    await shakeDetector.start();
+    // 直接监听 devicemotion 事件
+    window.addEventListener('devicemotion', handleDeviceMotion, true);
     shakeDetectorReady.value = true;
     addLog('摇动检测器启动成功 ✓', 'success');
+    
+    // 3秒后检查是否有事件触发
+    setTimeout(() => {
+      if (motionEventCount.value === 0) {
+        addLog('警告: 3秒内没有收到任何 devicemotion 事件', 'warn');
+        addLog('可能原因: 1.非HTTPS 2.桌面浏览器 3.权限问题', 'warn');
+      } else {
+        addLog(`已收到 ${motionEventCount.value} 次 devicemotion 事件`, 'success');
+      }
+    }, 3000);
+    
   } catch (error) {
     shakeDetectorReady.value = false;
     addLog(`摇动检测器启动失败: ${error.message}`, 'error');
   }
+};
+
+// 停止摇动检测
+const stopShakeDetector = () => {
+  window.removeEventListener('devicemotion', handleDeviceMotion, true);
+  shakeDetectorReady.value = false;
+  motionEventCount.value = 0;
+  lastAccel = { x: null, y: null, z: null };
+  addLog('摇动检测器已停止', 'info');
 };
 
 // 摇动动画
@@ -292,7 +498,7 @@ const sendScoreToServer = () => {
       score: gameStore.shakeCount,
     };
     
-    addLog(`发送数据: roundId=${data.roundId}, score=${data.score}`, 'info');
+    addLog(`发送: roundId=${data.roundId}, score=${data.score}`, 'info');
     
     try {
       wsStore.send("shake_score", data);
@@ -304,11 +510,11 @@ const sendScoreToServer = () => {
       addLog(`发送失败: ${error.message}`, 'error');
     }
   } else {
-    addLog(`跳过发送: shakeCount=${gameStore.shakeCount}, roundId=${gameStore.roundId}`, 'warn');
+    addLog(`跳过发送: count=${gameStore.shakeCount}, roundId=${gameStore.roundId}`, 'warn');
   }
 };
 
-// 定时上报分数（通过 WebSocket）
+// 定时上报分数
 const startScoreTimer = () => {
   addLog('启动定时上报 (500ms间隔)', 'info');
   scoreTimer = setInterval(() => {
@@ -321,10 +527,9 @@ const subscribeRankingUpdate = () => {
   addLog('订阅排名更新...', 'info');
   rankingUnsubscribe = wsStore.subscribe("ranking_update", (data) => {
     addLog(`收到排名更新: ${data.ranking?.length || 0}条`, 'success');
-    lastRankingData.value = data;
     
     if (data.roundId !== gameStore.roundId) {
-      addLog(`roundId不匹配，忽略: ${data.roundId} vs ${gameStore.roundId}`, 'warn');
+      addLog(`roundId不匹配，忽略`, 'warn');
       return;
     }
 
@@ -346,9 +551,7 @@ const onTimeChange = (time) => {
 // 游戏结束
 const onGameEnd = () => {
   addLog('游戏结束，最后上报分数', 'info');
-  // 最后上报一次
   sendScoreToServer();
-
   gameStore.endGame();
   router.replace("/shake/result");
 };
@@ -358,12 +561,22 @@ onMounted(() => {
   addLog(`gameStatus: ${gameStatus.value}`, 'info');
   addLog(`roundId: ${gameStore.roundId}`, 'info');
   addLog(`userId: ${userStore.userId}`, 'info');
+  addLog(`当前URL: ${window.location.href}`, 'info');
+  addLog(`协议: ${window.location.protocol}`, window.location.protocol === 'https:' ? 'success' : 'warn');
   
-  // 如果游戏正在进行中，初始化摇一摇
+  // 检查设备支持
+  checkDeviceSupport();
+  
+  // 如果游戏正在进行中
   if (gameStatus.value === "playing") {
-    initShake();
+    // 非iOS或已授权，直接初始化
+    if (!needsPermission.value) {
+      permissionStatus.value = 'granted';
+      initShake();
+    }
     startScoreTimer();
   }
+  
   subscribeRankingUpdate();
 });
 
@@ -372,7 +585,7 @@ onUnmounted(() => {
   if (scoreTimer) clearInterval(scoreTimer);
   if (shakeTimer) clearTimeout(shakeTimer);
   if (rankingUnsubscribe) rankingUnsubscribe();
-  destroyShakeDetector();
+  stopShakeDetector();
 });
 </script>
 
@@ -397,10 +610,10 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   z-index: 9999;
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(0, 0, 0, 0.92);
   color: #fff;
   font-size: 12px;
-  max-height: 60vh;
+  max-height: 70vh;
   overflow-y: auto;
   
   &.collapsed {
@@ -410,11 +623,12 @@ onUnmounted(() => {
   .debug-header {
     display: flex;
     justify-content: space-between;
-    padding: 8px 12px;
-    background: #333;
+    padding: 10px 12px;
+    background: #222;
     cursor: pointer;
     position: sticky;
     top: 0;
+    font-weight: bold;
   }
   
   .debug-content {
@@ -431,6 +645,30 @@ onUnmounted(() => {
     }
   }
   
+  .permission-section {
+    background: #1a1a2e;
+    margin: -8px -12px 12px;
+    padding: 12px;
+    border-bottom: 2px solid #e94560;
+  }
+  
+  .permission-btn {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #e94560, #ff6b6b);
+    color: #fff;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    
+    &:active {
+      opacity: 0.8;
+    }
+  }
+  
   .debug-title {
     font-weight: bold;
     margin-bottom: 6px;
@@ -440,7 +678,7 @@ onUnmounted(() => {
   .debug-row {
     display: flex;
     justify-content: space-between;
-    padding: 2px 0;
+    padding: 3px 0;
     
     .value {
       color: #ffeb3b;
@@ -456,11 +694,49 @@ onUnmounted(() => {
     }
   }
   
+  .accel-display {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    background: #1a1a1a;
+    padding: 8px;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    
+    .accel-item {
+      text-align: center;
+      
+      .label {
+        display: block;
+        color: #888;
+        font-size: 10px;
+      }
+      
+      .value {
+        display: block;
+        color: #4fc3f7;
+        font-size: 14px;
+        font-weight: bold;
+        font-family: monospace;
+        
+        &.highlight {
+          color: #4caf50;
+          animation: pulse 0.3s;
+        }
+      }
+    }
+  }
+  
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+  }
+  
   .debug-data {
     background: #1a1a1a;
     padding: 6px;
     border-radius: 4px;
-    max-height: 100px;
+    max-height: 80px;
     overflow-y: auto;
     
     pre {
@@ -473,7 +749,7 @@ onUnmounted(() => {
   }
   
   .debug-logs {
-    max-height: 120px;
+    max-height: 100px;
     overflow-y: auto;
     
     .log-item {
@@ -490,6 +766,7 @@ onUnmounted(() => {
       .log-time {
         color: #666;
         flex-shrink: 0;
+        font-family: monospace;
       }
       
       .log-msg {
@@ -499,18 +776,18 @@ onUnmounted(() => {
   }
   
   .debug-actions {
-    display: flex;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
     margin-top: 8px;
     
     button {
-      flex: 1;
-      padding: 6px 8px;
+      padding: 8px 4px;
       border: none;
       border-radius: 4px;
       background: #4fc3f7;
       color: #000;
-      font-size: 12px;
+      font-size: 11px;
       cursor: pointer;
       
       &:active {
@@ -520,9 +797,19 @@ onUnmounted(() => {
   }
 }
 
+.permission-banner {
+  background: #fff3cd;
+  color: #856404;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  text-align: center;
+  font-size: 14px;
+}
+
 .shake-content {
   padding: 16px;
-  padding-top: 60px; /* 给调试面板留空间 */
+  padding-top: 16px;
 }
 
 .no-round {
@@ -628,16 +915,9 @@ onUnmounted(() => {
 }
 
 @keyframes shake {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-  25% {
-    transform: rotate(-15deg);
-  }
-  75% {
-    transform: rotate(15deg);
-  }
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-15deg); }
+  75% { transform: rotate(15deg); }
 }
 
 .ranking-section {
@@ -678,15 +958,9 @@ onUnmounted(() => {
       color: #999;
       margin-right: 12px;
 
-      &.rank-1 {
-        color: #f5a623;
-      }
-      &.rank-2 {
-        color: #8e8e93;
-      }
-      &.rank-3 {
-        color: #cd7f32;
-      }
+      &.rank-1 { color: #f5a623; }
+      &.rank-2 { color: #8e8e93; }
+      &.rank-3 { color: #cd7f32; }
     }
 
     .name {
