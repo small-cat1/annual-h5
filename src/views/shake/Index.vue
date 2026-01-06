@@ -522,7 +522,6 @@ const unsubscribeAll = () => {
   }
 };
 
-// ⭐ 新增：获取当前游戏信息
 const fetchCurrentGame = async () => {
   if (!activityStore.activityId) {
     debug.log("无 activityId，跳过获取游戏", "warn");
@@ -532,33 +531,42 @@ const fetchCurrentGame = async () => {
   try {
     debug.log("请求当前游戏状态...", "info");
     const res = await getCurrentRound(activityStore.activityId);
-
+    
     if (res.code === 0 && res.data && res.data.status === 1) {
       const round = res.data;
       debug.log(`发现进行中的游戏: ${round.roundName}`, "success");
-
+      
       // 更新 store
       gameStore.setCurrentRound(round);
-
+      
+      // ⭐ 恢复用户分数
+      if (round.myScore > 0) {
+        gameStore.setShakeCount(round.myScore);
+        lastSentScore = round.myScore;  // ⭐ 同步上次发送的分数，避免重复发送
+        debug.log(`恢复分数: ${round.myScore}`, "success");
+        debug.setState("🎮 游戏", "摇动次数", round.myScore);
+      }
+      
       // 如果有 endTimeMs，启动游戏
       if (round.endTimeMs) {
         endTime.value = round.endTimeMs;
         totalTime.value = round.duration || 30;
         currentTime.value = Date.now();
-
-        gameStore.startGame(round.endTimeMs, round.duration || 30);
-
-        debug.setState(
-          "🎮 游戏",
-          "endTime",
-          new Date(round.endTimeMs).toLocaleTimeString()
-        );
+        
+        // ⭐ 设置游戏状态（不调用 startGame 避免清零分数）
+        gameStore.setGameStatus("playing");
+        gameStore.setEndTime(round.endTimeMs);
+        gameStore.setTotalTime(round.duration || 30);
+        gameStore.setRoundId(round.ID);
+        
+        debug.setState("🎮 游戏", "endTime", new Date(round.endTimeMs).toLocaleTimeString());
         debug.setState("🎮 游戏", "剩余时间", remainTime.value + "s");
-
+        debug.setState("🎮 游戏", "roundId", round.ID);
+        
         // 启动定时器
         startTimeUpdater();
         startScoreTimer();
-
+        
         // 初始化摇动检测
         const permStatus = checkPermissionStatus();
         if (permStatus === "granted") {
