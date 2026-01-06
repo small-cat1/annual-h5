@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: "0.0.0.0",
-      port: 8008,
+      port: 8808,
       proxy: {
         "/h5": {
           target: env.VITE_API_BASE_URL,
