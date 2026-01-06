@@ -1,5 +1,5 @@
 // 活动相关接口
-import { get } from '@/utils/request'
+import { get } from "@/utils/request";
 
 /**
  * 获取活动详情
@@ -7,5 +7,5 @@ import { get } from '@/utils/request'
  * @returns {Promise}
  */
 export function getActivityDetail(id) {
-  return get(`/h5/activity/${id}`)
+  return get("/h5/activity", { id });
 }

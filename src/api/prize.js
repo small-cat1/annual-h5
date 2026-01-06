@@ -1,5 +1,5 @@
 // 奖品相关接口
-import { get } from '@/utils/request'
+import { get } from "@/utils/request";
 
 /**
  * 获取我的中奖记录
@@ -7,7 +7,7 @@ import { get } from '@/utils/request'
  * @returns {Promise}
  */
 export function getMyWinnings(activityId) {
-  return get(`/h5/prize/my/${activityId}`)
+  return get("/h5/prize/my", { activityId });
 }
 
 /**
@@ -16,6 +16,5 @@ export function getMyWinnings(activityId) {
  * @returns {Promise}
  */
 export function getWinningDetail(winnerId) {
-  return get(`/h5/prize/winning/${winnerId}`)
+  return get("/h5/prize/winning", { winnerId });
 }
-

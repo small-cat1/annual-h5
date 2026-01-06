@@ -8,8 +8,8 @@ import { get } from "@/utils/request";
  */
 export function getCurrentRound(activityId) {
   return get(
-    `/h5/shake/round/current/${activityId}`,
-    {},
+    "/h5/shake/round/current",
+    { activityId },
     {
       showLoading: false,
       showError: false,
@@ -23,5 +23,5 @@ export function getCurrentRound(activityId) {
  * @returns {Promise}
  */
 export function getRoundResult(roundId) {
-  return get(`/h5/shake/result/${roundId}`);
+  return get("/h5/shake/result", { roundId });
 }
