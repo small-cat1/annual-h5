@@ -11,8 +11,7 @@ import { onMounted, watch } from "vue";
 const userStore = useUserStore();
 const activityStore = useActivityStore();
 const wsStore = useWebSocketStore();
-// 游戏调度中心
-const gameDispatcher = useGameDispatcher();
+
 // 自动连接 WebSocket
 // ⭐ 应用启动时，确保活动数据已初始化
 onMounted(async () => {
