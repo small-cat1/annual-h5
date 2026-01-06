@@ -24,7 +24,7 @@ onMounted(async () => {
   await router.isReady();
 
   const code = getCodeFromUrl();
-  const activityId = localStorage.getItem("activityId");  // ← 添加这行
+  const activityId = Number(localStorage.getItem("activityId"));
 
   if (!code) {
     showToast("授权失败，请重试");
@@ -34,7 +34,7 @@ onMounted(async () => {
 
   try {
     statusText.value = "正在登录...";
-    await userStore.wechatLogin(code,activityId);
+    await userStore.wechatLogin(code, activityId);
     statusText.value = "登录成功";
 
     // 获取重定向路径
