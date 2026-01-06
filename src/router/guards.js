@@ -1,5 +1,6 @@
 // 路由守卫
 import { useUserStore } from "@/store/modules/user";
+import { useActivityStore } from "@/store/modules/activity";
 import { isWechat, redirectToAuth } from "@/utils/wechat";
 
 export function setupRouterGuards(router) {
@@ -10,6 +11,7 @@ export function setupRouterGuards(router) {
     }
 
     const userStore = useUserStore();
+    const activityStore = useActivityStore();
 
     // 不需要登录的页面直接放行
     if (to.meta.requiresAuth === false) {
