@@ -33,7 +33,7 @@
             width="80"
             height="80"
             radius="8"
-            :src="currentRound.prize.image"
+            :src="getUrl(currentRound.prize.image)"
             fit="cover"
           />
           <div class="prize-info">
@@ -132,7 +132,7 @@
 <script setup>
 import DebugPanel from "@/components/common/DebugPanel.vue";
 import { useGameStore, useUserStore, useWebSocketStore } from "@/store";
-import { formatPrizeLevel } from "@/utils/format";
+import { formatPrizeLevel, getUrl } from "@/utils/format";
 import { destroyShakeDetector, getShakeDetector } from "@/utils/shake";
 import { computed, onMounted, onUnmounted, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
