@@ -10,7 +10,7 @@
       <template #right>
         <span class="online-count">
           <i class="dot" />
-           在线
+          在线
         </span>
       </template>
     </van-nav-bar>
@@ -26,12 +26,7 @@
         :style="getDanmakuStyle(item)"
       >
         <div class="danmaku-bubble" :style="{ '--bubble-color': item.color }">
-          <img 
-            v-if="item.avatar" 
-            class="avatar" 
-            :src="item.avatar" 
-            alt="" 
-          />
+          <img v-if="item.avatar" class="avatar" :src="item.avatar" alt="" />
           <span class="text">{{ item.content }}</span>
         </div>
       </div>
@@ -55,8 +50,8 @@
     <div class="input-area safe-area-bottom">
       <!-- 快捷弹幕 -->
       <div class="quick-danmaku">
-        <div 
-          v-for="(text, index) in quickTexts" 
+        <div
+          v-for="(text, index) in quickTexts"
           :key="index"
           class="quick-item"
           @click="sendQuickDanmaku(text)"
@@ -92,7 +87,7 @@
           />
           <span class="char-count">{{ content.length }}/30</span>
         </div>
-        <button 
+        <button
           class="send-btn"
           :class="{ active: content.trim() && canSend }"
           :disabled="!canSend || !content.trim() || sending"
@@ -130,13 +125,12 @@ const showSendEffect = ref(false);
 
 let uniqueId = 0;
 
-
-let loopTimer = null
-let loopIndex = 0
+let loopTimer = null;
+let loopIndex = 0;
 // 快捷弹幕
 const quickTexts = [
   "我要暴富！",
-  "🎉🎉🎉", 
+  "🎉🎉🎉",
   "公司太棒了！",
   "加油！",
   "新年快乐",
@@ -183,9 +177,9 @@ const getDanmakuStyle = (item) => {
 
 // 添加弹幕到显示区域
 const addDanmaku = (item, isSelf = false) => {
-  const sizes = ['small', 'normal', 'large'];
+  const sizes = ["small", "normal", "large"];
   const sizeIndex = isSelf ? 2 : Math.floor(Math.random() * 3);
-  
+
   const danmaku = {
     ...item,
     uniqueId: `danmaku-${uniqueId++}`,
@@ -201,7 +195,9 @@ const addDanmaku = (item, isSelf = false) => {
   // 动画结束后移除
   const totalTime = (danmaku.duration + danmaku.delay) * 1000 + 500;
   setTimeout(() => {
-    const index = displayDanmaku.value.findIndex((d) => d.uniqueId === danmaku.uniqueId);
+    const index = displayDanmaku.value.findIndex(
+      (d) => d.uniqueId === danmaku.uniqueId
+    );
     if (index > -1) {
       displayDanmaku.value.splice(index, 1);
     }
@@ -230,11 +226,14 @@ const handleSend = async () => {
       showToast("弹幕已提交，等待审核");
     } else {
       // 立即显示自己发的弹幕
-      addDanmaku({
-        id: Date.now(),
-        content: content.value.trim(),
-        color: selectedColor.value,
-      }, true);
+      addDanmaku(
+        {
+          id: Date.now(),
+          content: content.value.trim(),
+          color: selectedColor.value,
+        },
+        true
+      );
       showSuccessToast("发送成功");
     }
 
@@ -258,7 +257,11 @@ const fetchDanmaku = async () => {
 
   loading.value = true;
   try {
-    const res = await getRecentDanmaku(activityStore.activityId, 30);
+    const res = await getRecentDanmaku({
+      activityId: activityStore.activityId,
+      page: 1,
+      pageSize: 30,
+    });
     danmakuList.value = res.data || [];
 
     // 依次显示历史弹幕
@@ -268,12 +271,11 @@ const fetchDanmaku = async () => {
       }, index * 500);
     });
 
-       // 历史弹幕显示完后开始循环
-    const startDelay = danmakuList.value.length * 500 + 1000
+    // 历史弹幕显示完后开始循环
+    const startDelay = danmakuList.value.length * 500 + 1000;
     setTimeout(() => {
-      startLoop()
-    }, startDelay)
-
+      startLoop();
+    }, startDelay);
   } catch (error) {
     console.error("获取弹幕失败:", error);
   } finally {
@@ -294,39 +296,38 @@ const subscribeWebSocket = () => {
   unsubscribe = wsStore.subscribe("new_danmaku", handleNewDanmaku);
 };
 
-
 // 开始循环播放
 const startLoop = () => {
-  stopLoop()
-  if (danmakuList.value.length === 0) return
-  
+  stopLoop();
+  if (danmakuList.value.length === 0) return;
+
   const addNext = () => {
-    if (danmakuList.value.length === 0) return
-    
+    if (danmakuList.value.length === 0) return;
+
     // 随机添加 1-2 条弹幕
     const count = Math.min(
       Math.floor(Math.random() * 2) + 1,
       danmakuList.value.length
-    )
-    
+    );
+
     for (let i = 0; i < count; i++) {
-      const item = danmakuList.value[loopIndex % danmakuList.value.length]
-      addDanmaku(item)
-      loopIndex++
+      const item = danmakuList.value[loopIndex % danmakuList.value.length];
+      addDanmaku(item);
+      loopIndex++;
     }
-  }
-  
+  };
+
   // 定时添加弹幕
-  loopTimer = setInterval(addNext, 2000)
-}
+  loopTimer = setInterval(addNext, 2000);
+};
 
 // 停止循环
 const stopLoop = () => {
   if (loopTimer) {
-    clearInterval(loopTimer)
-    loopTimer = null
+    clearInterval(loopTimer);
+    loopTimer = null;
   }
-}
+};
 
 watch(
   () => wsStore.isConnected,
@@ -347,7 +348,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (unsubscribe) unsubscribe();
-    stopLoop()  
+  stopLoop();
 });
 </script>
 
@@ -366,7 +367,7 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  
+
   .star {
     position: absolute;
     background: #fff;
@@ -377,14 +378,21 @@ onUnmounted(() => {
 }
 
 @keyframes twinkle {
-  0%, 100% { opacity: 0.3; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.2); }
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
 }
 
 // 导航栏
 :deep(.van-nav-bar) {
   background: transparent;
-  
+
   .van-nav-bar__title,
   .van-nav-bar__arrow {
     color: #fff;
@@ -397,19 +405,24 @@ onUnmounted(() => {
   gap: 6px;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.8);
-  
+
   .dot {
     width: 6px;
     height: 6px;
-    background: #4CAF50;
+    background: #4caf50;
     border-radius: 50%;
     animation: pulse 2s infinite;
   }
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 // 弹幕区域
@@ -424,17 +437,21 @@ onUnmounted(() => {
   left: 100%;
   animation: flyLeft linear forwards;
   z-index: 1;
-  
+
   &.is-self .danmaku-bubble {
     box-shadow: 0 0 20px var(--bubble-color);
   }
-  
+
   &.size-small {
-    .danmaku-bubble { transform: scale(0.85); }
+    .danmaku-bubble {
+      transform: scale(0.85);
+    }
   }
-  
+
   &.size-large {
-    .danmaku-bubble { transform: scale(1.1); }
+    .danmaku-bubble {
+      transform: scale(1.1);
+    }
   }
 }
 
@@ -448,14 +465,14 @@ onUnmounted(() => {
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(8px);
   white-space: nowrap;
-  
+
   .avatar {
     width: 22px;
     height: 22px;
     border-radius: 50%;
     border: 1px solid rgba(255, 255, 255, 0.3);
   }
-  
+
   .text {
     font-size: 14px;
     color: var(--bubble-color, #fff);
@@ -488,18 +505,18 @@ onUnmounted(() => {
   transform: translate(-50%, -50%);
   text-align: center;
   color: rgba(255, 255, 255, 0.6);
-  
+
   .empty-icon {
     font-size: 48px;
     margin-bottom: 12px;
     animation: bounce 2s infinite;
   }
-  
+
   p {
     margin: 4px 0;
     font-size: 14px;
   }
-  
+
   .sub {
     font-size: 12px;
     opacity: 0.6;
@@ -507,8 +524,13 @@ onUnmounted(() => {
 }
 
 @keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 // 发送特效
@@ -557,11 +579,11 @@ onUnmounted(() => {
   overflow-x: auto;
   padding-bottom: 10px;
   margin-bottom: 10px;
-  
+
   &::-webkit-scrollbar {
     display: none;
   }
-  
+
   .quick-item {
     flex-shrink: 0;
     padding: 6px 14px;
@@ -570,7 +592,7 @@ onUnmounted(() => {
     font-size: 13px;
     color: rgba(255, 255, 255, 0.8);
     transition: all 0.2s;
-    
+
     &:active {
       transform: scale(0.95);
       background: rgba(255, 255, 255, 0.2);
@@ -595,7 +617,7 @@ onUnmounted(() => {
     display: flex;
     align-items: center;
     justify-content: center;
-    
+
     .van-icon {
       color: rgba(0, 0, 0, 0.6);
       font-size: 14px;
@@ -607,7 +629,7 @@ onUnmounted(() => {
       transform: scale(1.15);
       box-shadow: 0 0 12px rgba(255, 255, 255, 0.4);
     }
-    
+
     &:active {
       transform: scale(0.9);
     }
@@ -618,11 +640,11 @@ onUnmounted(() => {
 .input-box {
   display: flex;
   gap: 10px;
-  
+
   .input-wrapper {
     flex: 1;
     position: relative;
-    
+
     input {
       width: 100%;
       height: 40px;
@@ -634,17 +656,17 @@ onUnmounted(() => {
       font-size: 14px;
       outline: none;
       transition: all 0.2s;
-      
+
       &::placeholder {
         color: rgba(255, 255, 255, 0.4);
       }
-      
+
       &:focus {
         border-color: rgba(255, 255, 255, 0.4);
         background: rgba(255, 255, 255, 0.15);
       }
     }
-    
+
     .char-count {
       position: absolute;
       right: 14px;
@@ -654,7 +676,7 @@ onUnmounted(() => {
       color: rgba(255, 255, 255, 0.4);
     }
   }
-  
+
   .send-btn {
     width: 64px;
     height: 40px;
@@ -666,15 +688,15 @@ onUnmounted(() => {
     font-weight: 500;
     opacity: 0.5;
     transition: all 0.2s;
-    
+
     &.active {
       opacity: 1;
     }
-    
+
     &:active:not(:disabled) {
       transform: scale(0.95);
     }
-    
+
     .loading {
       animation: spin 1s linear infinite;
     }
@@ -682,8 +704,12 @@ onUnmounted(() => {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .tips {

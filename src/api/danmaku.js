@@ -16,6 +16,6 @@ export function sendDanmaku(data) {
  * @param {object} params { page, pageSize }
  * @returns {Promise}
  */
-export function getRecentDanmaku(activityId, params) {
-  return get("/h5/danmaku/list", { activityId, ...params });
+export function getRecentDanmaku( params) {
+  return get("/h5/danmaku/list", params);
 }
