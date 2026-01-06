@@ -54,18 +54,6 @@ export const routes = [
     meta: { title: "摇一摇", requiresAuth: true },
   },
   {
-    path: "/shake/join",
-    name: "ShakeJoin",
-    component: () => import("@/views/shake/Join.vue"),
-    meta: { title: "加入游戏", requiresAuth: true },
-  },
-  {
-    path: "/shake/playing",
-    name: "ShakePlaying",
-    component: () => import("@/views/shake/Playing.vue"),
-    meta: { title: "摇一摇", requiresAuth: true },
-  },
-  {
     path: "/shake/result",
     name: "ShakeResult",
     component: () => import("@/views/shake/Result.vue"),

@@ -1,5 +1,5 @@
 // 弹幕相关接口
-import { post, get } from '@/utils/request'
+import { get, post } from "@/utils/request";
 
 /**
  * 发送弹幕
@@ -7,7 +7,7 @@ import { post, get } from '@/utils/request'
  * @returns {Promise}
  */
 export function sendDanmaku(data) {
-  return post('/h5/danmaku', data)
+  return post("/h5/danmaku", data);
 }
 
 /**
@@ -16,9 +16,6 @@ export function sendDanmaku(data) {
  * @param {object} params { page, pageSize }
  * @returns {Promise}
  */
-export function getDanmakuList(activityId, params) {
-  return get(`/h5/danmaku/list/${activityId}`, params)
+export function getRecentDanmaku(activityId, params) {
+  return get(`/h5/danmaku/list/${activityId}`, params);
 }
-
-
-
