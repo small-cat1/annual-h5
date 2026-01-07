@@ -18,7 +18,7 @@
             width="120"
             height="120"
             radius="12"
-            :src="winPrize.image"
+            :src="getUrl(winPrize.image)"
             fit="cover"
           />
           <h3>{{ winPrize.name }}</h3>
@@ -95,10 +95,10 @@
 
 <script setup>
 import { getRoundResult } from "@/api/shake";
-import { useGameStore, useUserStore,useActivityStore } from "@/store";
+import { useActivityStore, useGameStore, useUserStore } from "@/store";
+import { getUrl } from "@/utils/format";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-
 const router = useRouter();
 const gameStore = useGameStore();
 const userStore = useUserStore();
@@ -126,13 +126,13 @@ const formatRank = (rank) => {
 // 跳转
 const viewPrize = () => {
   // 重置状态，准备下一场
-  gameStore.resetGame(); 
+  gameStore.resetGame();
   router.push("/prize");
 };
 
 const goHome = () => {
   // 重置状态，准备下一场
-  gameStore.resetGame();  
+  gameStore.resetGame();
   router.replace("/");
 };
 
@@ -152,13 +152,18 @@ const fetchResult = async () => {
     winPrize.value = gameStore.prize;
 
     // 获取结果
-    const res = await getRoundResult({roundId:roundId,activityId:activityStore.activityId});
+    const res = await getRoundResult({
+      roundId: roundId,
+      activityId: activityStore.activityId,
+    });
     if (res.code === 0 && res.data) {
       ranking.value = res.data.ranking || [];
       myRank.value = res.data.myRank || 0;
       myScore.value = gameStore.shakeCount || 0;
       isWinner.value = res.data.isWinner || false;
-
+      // ✅ 修改：从排行榜中找到自己的分数
+      const myRecord = ranking.value.find((item) => item.userId == userId);
+      myScore.value = myRecord?.score || gameStore.shakeCount || 0;
       // 如果中奖，获取奖品信息
       if (res.data.winInfo) {
         winPrize.value = res.data.winInfo.prize;
