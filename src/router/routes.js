@@ -65,12 +65,6 @@ export const routes = [
     component: () => import("@/views/prize/List.vue"),
     meta: { title: "我的奖品", requiresAuth: true },
   },
-  {
-    path: "/prize/:id",
-    name: "PrizeDetail",
-    component: () => import("@/views/prize/Detail.vue"),
-    meta: { title: "奖品详情", requiresAuth: true },
-  },
   // ========== 错误页面 ==========
   {
     path: "/404",
