@@ -72,6 +72,7 @@
 
 <script setup>
 import { getWinningDetail } from "@/api/prize";
+import { useActivityStore } from "@/store"; // 添加导入
 import {
   formatDate,
   formatPrizeLevel,
@@ -81,7 +82,6 @@ import {
 import QrcodeVue from "qrcode.vue";
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
-import { useActivityStore } from "@/stores/activity"; // 添加导入
 
 const route = useRoute();
 const activityStore = useActivityStore(); // 初始化 store
