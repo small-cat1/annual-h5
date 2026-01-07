@@ -102,7 +102,7 @@ import { useRouter } from "vue-router";
 const router = useRouter();
 const gameStore = useGameStore();
 const userStore = useUserStore();
-
+const activityStore = useActivityStore();
 const defaultAvatar = "https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg";
 const userId = userStore.userId;
 
@@ -152,7 +152,7 @@ const fetchResult = async () => {
     winPrize.value = gameStore.prize;
 
     // 获取结果
-    const res = await getRoundResult(roundId);
+    const res = await getRoundResult({roundId:roundId,activityId:activityStore.activityId});
     if (res.code === 0 && res.data) {
       ranking.value = res.data.ranking || [];
       myRank.value = res.data.myRank || 0;

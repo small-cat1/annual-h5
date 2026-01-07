@@ -22,6 +22,6 @@ export function getCurrentRound(activityId) {
  * @param {number} roundId 场次ID
  * @returns {Promise}
  */
-export function getRoundResult(roundId) {
-  return get("/h5/shake/result", { roundId });
+export function getRoundResult(params) {
+  return get("/h5/shake/result", params);
 }
