@@ -81,8 +81,10 @@ import {
 import QrcodeVue from "qrcode.vue";
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
+import { useActivityStore } from "@/stores/activity"; // 添加导入
 
 const route = useRoute();
+const activityStore = useActivityStore(); // 初始化 store
 
 const prizeInfo = ref(null);
 

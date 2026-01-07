@@ -9,7 +9,7 @@
           v-for="item in prizeList"
           :key="item.id"
           class="prize-card"
-          @click="viewDetail(item)"
+          @click="showQrcode(item)"
         >
           <van-image
             width="80"
@@ -34,7 +34,12 @@
             <van-tag :type="item.status === 1 ? 'success' : 'warning'">
               {{ item.status === 1 ? "已领取" : "未领取" }}
             </van-tag>
-            <van-icon name="arrow" color="#999" />
+            <van-icon
+              v-if="item.status !== 1"
+              name="qr"
+              color="#1989fa"
+              size="20"
+            />
           </div>
         </div>
       </div>
@@ -51,6 +56,23 @@
         </van-empty>
       </div>
     </div>
+
+    <!-- 二维码弹窗 -->
+    <van-popup
+      v-model:show="qrcodeVisible"
+      round
+      closeable
+      :style="{ padding: '24px', width: '85%' }"
+    >
+      <div class="qrcode-popup" v-if="currentPrize">
+        <h3 class="popup-title">{{ currentPrize.prize?.name }}</h3>
+        <p class="popup-tips">请出示此二维码给工作人员扫码核销</p>
+        <div class="qrcode-wrap">
+          <qrcode-vue :value="qrcodeValue" :size="180" level="H" />
+        </div>
+        <p class="qrcode-id">领奖码：{{ currentPrize.id }}</p>
+      </div>
+    </van-popup>
   </div>
 </template>
 
@@ -63,7 +85,9 @@ import {
   formatWinType,
   getUrl,
 } from "@/utils/format";
-import { onMounted, ref } from "vue";
+import QrcodeVue from "qrcode.vue";
+import { showToast } from "vant";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
@@ -71,6 +95,8 @@ const activityStore = useActivityStore();
 
 const prizeList = ref([]);
 const loading = ref(false);
+const qrcodeVisible = ref(false);
+const currentPrize = ref(null);
 
 const getLevelTagType = (level) => {
   const types = {
@@ -83,8 +109,25 @@ const getLevelTagType = (level) => {
   return types[level] || "default";
 };
 
-const viewDetail = (item) => {
-  router.push(`/prize/${item.id}`);
+// 二维码内容
+const qrcodeValue = computed(() => {
+  if (!currentPrize.value) return "";
+  return JSON.stringify({
+    type: "prize_receive",
+    winnerId: currentPrize.value.id,
+    prizeId: currentPrize.value.prizeId,
+    userId: currentPrize.value.userId,
+  });
+});
+
+// 显示二维码弹窗
+const showQrcode = (item) => {
+  if (item.status === 1) {
+    showToast("奖品已领取");
+    return;
+  }
+  currentPrize.value = item;
+  qrcodeVisible.value = true;
 };
 
 const goShake = () => {
@@ -92,7 +135,6 @@ const goShake = () => {
 };
 
 const fetchPrizeList = async () => {
-  // 修复：从 localStorage 获取 activityId 并初始化
   if (!activityStore.activityId) {
     const activityId = localStorage.getItem("activityId");
     if (activityId) {
@@ -181,5 +223,37 @@ onMounted(() => {
 
 .empty-state {
   padding: 60px 0;
+}
+
+/* 二维码弹窗样式 */
+.qrcode-popup {
+  text-align: center;
+
+  .popup-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 8px;
+  }
+
+  .popup-tips {
+    font-size: 14px;
+    color: #999;
+    margin-bottom: 20px;
+  }
+
+  .qrcode-wrap {
+    display: inline-flex;
+    padding: 16px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    margin-bottom: 12px;
+  }
+
+  .qrcode-id {
+    font-size: 12px;
+    color: #999;
+  }
 }
 </style>
