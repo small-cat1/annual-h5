@@ -95,7 +95,7 @@
 
 <script setup>
 import { getRoundResult } from "@/api/shake";
-import { useGameStore, useUserStore } from "@/store";
+import { useGameStore, useUserStore,useActivityStore } from "@/store";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
