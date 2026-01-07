@@ -98,9 +98,9 @@
         </button>
       </div>
 
-      <p class="tips" v-if="activityStore.config?.danmakuAudit">
+      <!-- <p class="tips" v-if="activityStore.config?.danmakuAudit">
         <van-icon name="info-o" /> 弹幕需要审核后才能显示
-      </p>
+      </p> -->
     </div>
   </div>
 </template>
@@ -108,7 +108,7 @@
 <script setup>
 import { getRecentDanmaku, sendDanmaku } from "@/api/danmaku";
 import { useActivityStore, useWebSocketStore } from "@/store";
-import { showSuccessToast, showToast } from "vant";
+import { showSuccessToast } from "vant";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
 const activityStore = useActivityStore();
@@ -221,22 +221,16 @@ const handleSend = async () => {
     setTimeout(() => {
       showSendEffect.value = false;
     }, 800);
-
-    if (activityStore.config?.danmakuAudit) {
-      showToast("弹幕已提交，等待审核");
-    } else {
-      // 立即显示自己发的弹幕
-      addDanmaku(
-        {
-          id: Date.now(),
-          content: content.value.trim(),
-          color: selectedColor.value,
-        },
-        true
-      );
-      showSuccessToast("发送成功");
-    }
-
+    // 立即显示自己发的弹幕
+    addDanmaku(
+      {
+        id: Date.now(),
+        content: content.value.trim(),
+        color: selectedColor.value,
+      },
+      true
+    );
+    showSuccessToast("发送成功");
     content.value = "";
   } catch (error) {
     console.error("发送失败:", error);
