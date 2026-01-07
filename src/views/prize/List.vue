@@ -27,7 +27,7 @@
               <span class="win-type">{{ formatWinType(item.winType) }}</span>
             </div>
             <p class="win-time">
-              中奖时间：{{ formatDate(item.createdAt, "MM-DD HH:mm") }}
+              中奖时间：{{ formatDate(item.createdAt) }}
             </p>
           </div>
           <div class="prize-status">
